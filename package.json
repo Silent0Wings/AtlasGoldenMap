@@ -1,0 +1,33 @@
+{
+  "name": "golden-map-atlas",
+  "version": "1.0.0",
+  "description": "Golden screenshots of every screen of any web app, as visual regression tests and an offline, searchable graph dashboard.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "setup": "node core/cli.mjs setup",
+    "deps": "node core/cli.mjs deps",
+    "config": "node core/cli.mjs config",
+    "atlas": "node core/cli.mjs run atlas",
+    "capture": "node core/cli.mjs run capture",
+    "build": "node core/cli.mjs run build",
+    "check": "node core/cli.mjs run check",
+    "crawl": "node core/cli.mjs run crawl",
+    "open": "node core/cli.mjs run open",
+    "report": "node core/cli.mjs run report",
+    "clean": "node core/cli.mjs run clean",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@types/node": "^22.20.5",
+    "cytoscape": "^3.34.4",
+    "cytoscape-dagre": "^4.0.1",
+    "dagre": "^0.8.5",
+    "fuse.js": "^7.5.0",
+    "typescript": "^5.6.3"
+  }
+}

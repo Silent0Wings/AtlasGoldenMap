@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__ · Golden Map Atlas</title>
+<link rel="icon" href="__ICON__">
+<style>
+:root {
+  --bg: #f6f5f1; --panel: #ffffff; --panel-2: #f0eee8; --line: #dedbd2; --text: #1d1c1a; --muted: #6b6860;
+  --accent: #0f6b6b; --accent-soft: #d8ecea; --hit: #e8890c; --warn: #b4441c;
+  --k-page: #0f6b6b; --k-state: #7a4fc4; --k-item: #2f6fd0; --k-component: #b0712a;
+  --edge: #b9b5aa; --shadow: 0 1px 2px rgb(0 0 0 / .06), 0 4px 16px rgb(0 0 0 / .06);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121315; --panel: #1b1c1f; --panel-2: #232428; --line: #34363b; --text: #ecebe7; --muted: #9d9b95;
+    --accent: #5cc4bd; --accent-soft: #1f3b3a; --hit: #ffad3b; --warn: #ff8a65;
+    --k-page: #5cc4bd; --k-state: #b394f2; --k-item: #79a8f2; --k-component: #e3a85c;
+    --edge: #4a4c52; --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 6px 20px rgb(0 0 0 / .35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121315; --panel: #1b1c1f; --panel-2: #232428; --line: #34363b; --text: #ecebe7; --muted: #9d9b95;
+  --accent: #5cc4bd; --accent-soft: #1f3b3a; --hit: #ffad3b; --warn: #ff8a65;
+  --k-page: #5cc4bd; --k-state: #b394f2; --k-item: #79a8f2; --k-component: #e3a85c;
+  --edge: #4a4c52; --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 6px 20px rgb(0 0 0 / .35);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--text); font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
+button, input, select { font: inherit; color: inherit; }
+code { font: 12px ui-monospace, "Cascadia Code", Consolas, monospace; background: var(--panel-2); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+header h1 { font-size: 16px; margin: 0; letter-spacing: .01em; white-space: nowrap; }
+header h1 span { color: var(--muted); font-weight: 400; }
+header h1 { display: flex; align-items: center; gap: 8px; }
+header h1 .logo { width: 26px; height: 26px; }
+header h1 .logo[src=""] { display: none; }
+.search { flex: 1 1 280px; position: relative; max-width: 560px; }
+.search input { width: 100%; padding: 8px 12px 8px 32px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); outline: none; }
+.search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; stroke: var(--muted); }
+.search kbd { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font: 11px ui-monospace, monospace; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.chip { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 10px; cursor: pointer; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; }
+select.chip { padding-right: 6px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: var(--panel); padding: 5px 10px; cursor: pointer; font-size: 12px; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--panel); }
+.stats { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+main { display: grid; grid-template-columns: 1fr 400px; min-height: 0; }
+#cy { min-height: 0; position: relative; }
+.legend { position: absolute; left: 12px; bottom: 12px; z-index: 2; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 11px; color: var(--muted); display: flex; gap: 10px; box-shadow: var(--shadow); }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.graph-tools { position: absolute; right: 12px; bottom: 12px; z-index: 2; display: flex; gap: 6px; }
+.graph-hint { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 2; font-size: 11px; color: var(--muted);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; white-space: nowrap; pointer-events: none; opacity: .9; }
+@media (max-width: 1200px) { .graph-hint { display: none; } }
+.graph-tools button { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 5px 10px; cursor: pointer; font-size: 12px; box-shadow: var(--shadow); }
+
+aside { border-left: 1px solid var(--line); background: var(--panel); overflow: auto; min-height: 0; }
+aside section { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+aside h2 { font-size: 15px; margin: 0 0 6px; }
+aside h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 6px; }
+.empty { color: var(--muted); }
+.results { list-style: none; margin: 0; padding: 0; }
+.results li { display: grid; grid-template-columns: 72px 1fr; gap: 10px; padding: 6px; border-radius: 8px; cursor: pointer; align-items: center; }
+.results li:hover, .results li:focus-visible { background: var(--panel-2); outline: none; }
+.results img { width: 72px; height: 48px; object-fit: cover; object-position: top; border-radius: 4px; border: 1px solid var(--line); background: var(--panel-2); }
+.results li > div { min-width: 0; }
+.results .t { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.results .s { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pill { background: var(--k-page); display: inline-block; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; padding: 1px 6px; border-radius: 4px; color: var(--panel); vertical-align: 1px; }
+.k-page { background: var(--k-page); } .k-state { background: var(--k-state); } .k-item { background: var(--k-item); } .k-component { background: var(--k-component); }
+.crumbs { font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 4px; margin-bottom: 6px; }
+.crumbs a { color: var(--accent); cursor: pointer; text-decoration: none; }
+.crumbs a:hover { text-decoration: underline; }
+.shot { display: block; width: 100%; border: 1px solid var(--line); border-radius: 8px; cursor: zoom-in; background: var(--panel-2); }
+.shot-wrap { position: relative; }
+.shot-actions { display: flex; gap: 6px; margin-top: 6px; }
+.shot-actions button { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 3px 8px; font-size: 12px; cursor: pointer; }
+dl.meta { display: grid; grid-template-columns: 70px 1fr; gap: 4px 8px; margin: 8px 0 0; font-size: 12px; }
+dl.meta dt { color: var(--muted); } dl.meta dd { margin: 0; min-width: 0; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag { font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; cursor: pointer; overflow-wrap: anywhere; }
+.tag:hover { border-color: var(--accent); }
+.comps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.comps figure { margin: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; cursor: zoom-in; background: var(--panel-2); }
+.comps img { display: block; width: 100%; height: 90px; object-fit: contain; background: var(--bg); }
+.comps figcaption { font-size: 11px; padding: 4px 6px; border-top: 1px solid var(--line); background: var(--panel); }
+.comps figcaption code { font-size: 10px; display: block; margin-top: 2px; background: none; padding: 0; color: var(--muted); }
+.children { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.children a { font-size: 12px; color: var(--accent); cursor: pointer; border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+.warn { color: var(--warn); font-size: 12px; }
+.text { font-size: 12px; color: var(--muted); }
+
+#lightbox { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / .92); display: none; flex-direction: column; }
+#lightbox.open { display: flex; }
+#lightbox .bar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; color: #fff; }
+#lightbox .bar b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#lightbox .bar button { border: 1px solid #fff5; background: transparent; color: #fff; border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+#lightbox .body { flex: 1; overflow: auto; display: flex; gap: 16px; justify-content: center; align-items: flex-start; padding: 0 16px 16px; }
+#lightbox figure { margin: 0; max-width: 100%; }
+#lightbox figure figcaption { color: #fffc; font-size: 12px; margin-bottom: 4px; }
+#lightbox img { max-width: 100%; border-radius: 6px; background: #fff; display: block; }
+#lightbox.compare figure { flex: 1 1 0; min-width: 0; }
+
+@media (max-width: 900px) {
+  body { overflow: auto; grid-template-rows: auto auto; }
+  main { grid-template-columns: 1fr; }
+  #cy { height: 60vh; }
+  aside { border-left: 0; border-top: 1px solid var(--line); }
+  .stats { display: none; }
+  #lightbox.compare .body { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1><img class="logo" src="__ICON__" alt="">__TITLE__ <span>Golden Map Atlas</span></h1>
+  <label class="search">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="q" type="search" placeholder="Search screens, components, selectors, tags…" autocomplete="off" aria-label="Search">
+    <kbd>/</kbd>
+  </label>
+  <div class="controls">
+    <select id="group" class="chip" aria-label="Group" hidden><option value="">All groups</option></select>
+    <button class="chip" id="tItems" aria-pressed="false" hidden title="Show every collection item (otherwise only items that lead somewhere)"><span class="dot k-item"></span><span id="tItemsLabel">All items</span></button>
+    <button class="chip" id="tComp" aria-pressed="false" title="Show sub-component nodes"><span class="dot k-component"></span>Components</button>
+    <div class="seg" role="group" aria-label="Screenshot variant" id="variants"></div>
+  </div>
+  <div class="stats" id="stats"></div>
+</header>
+<main>
+  <div id="cy">
+    <div class="legend" id="legend"></div>
+    <div class="graph-hint">Scroll to move · Shift+scroll sideways · Ctrl+scroll to zoom · drag to pan</div>
+    <div class="graph-tools"><button id="zoomOut" aria-label="Zoom out">−</button><button id="zoomIn" aria-label="Zoom in">+</button><button id="fit">Fit</button><button id="relayout">Re-layout</button></div>
+  </div>
+  <aside>
+    <section id="searchBox" hidden>
+      <h3 style="margin-top:0">Results <span id="count"></span></h3>
+      <ul class="results" id="results"></ul>
+    </section>
+    <section id="detail"><p class="empty">Click a node in the graph, or search, to see its screenshot and details.</p></section>
+  </aside>
+</main>
+<div id="lightbox" role="dialog" aria-modal="true">
+  <div class="bar"><b id="lbTitle"></b><button id="lbCompare">Compare variants</button><button id="lbClose">Close (Esc)</button></div>
+  <div class="body" id="lbBody"></div>
+</div>
+
+<script>/*__LIBS__*/</script>
+<script id="atlas-data" type="application/json">__DATA__</script>
+<script>
+(() => {
+const D = JSON.parse(document.getElementById('atlas-data').textContent);
+const IMG = D.images;
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+/* ---------- index ---------- */
+const byId = new Map(), children = new Map(), comps = new Map();
+for (const n of D.nodes) byId.set(n.id, n);
+const ROOT = byId.has(D.root) ? D.root : (D.nodes.find(n => !n.parent) ?? D.nodes[0])?.id;
+for (const n of D.nodes) {   // a parent that failed to capture: hang the node off the root instead
+  if (n.parent && !byId.has(n.parent)) n.parent = n.id !== ROOT ? ROOT : null;
+}
+for (const n of D.nodes) {
+  if (n.parent && byId.has(n.parent)) (children.get(n.parent) ?? children.set(n.parent, []).get(n.parent)).push(n.id);
+  for (const c of n.components ?? []) comps.set(c.id, { ...c, kind: 'component', parent: n.id, owner: n });
+}
+const kindOf = id => byId.get(id)?.kind ?? 'component';
+const get = id => byId.get(id) ?? comps.get(id);
+const ancestors = id => { const out = []; for (let n = get(id)?.parent && get(get(id).parent); n; n = n.parent && get(n.parent)) out.unshift(n); return out; };
+const groupOf = n => n.group ?? ancestors(n.id).reverse().find(a => a.group)?.group ?? null;
+
+/* ---------- variants (themes, viewports, locales…) ---------- */
+const VARIANTS = D.variants?.length ? D.variants : [{ name: 'default', label: 'default', colorScheme: null }];
+const vname = v => VARIANTS.find(x => x.name === v)?.label ?? v;
+const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
+let theme = store.get('atlas-variant');
+if (!VARIANTS.some(v => v.name === theme))
+  theme = (VARIANTS.find(v => v.colorScheme === (prefersDark ? 'dark' : 'light')) ?? VARIANTS[0]).name;
+const shotKey = o => o.shots?.[theme] ?? VARIANTS.map(v => o.shots?.[v.name]).find(Boolean) ?? null;
+const shotVariants = o => VARIANTS.filter(v => o.shots?.[v.name]).map(v => v.name);
+const img = (o, size = 'thumb') => { const k = shotKey(o); return k && IMG[k] ? IMG[k][size] : ''; };
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+/* ---------- filters / groups ---------- */
+const groups = [...new Set(D.nodes.map(n => n.group).filter(Boolean))];
+for (const g of groups) $('group').insertAdjacentHTML('beforeend', `<option value="${esc(g)}">${esc(D.groups?.[g] ?? g)}</option>`);
+$('group').hidden = !groups.length;
+const hasItems = D.nodes.some(n => n.kind === 'item');
+$('tItems').hidden = !hasItems;
+$('tItemsLabel').textContent = `All ${D.labels?.items ?? 'items'}`;
+const ui = { allItems: false, comps: false, group: '', forced: new Set() };
+// with a group filter on, ungrouped nodes stay visible only as ancestors of that group's nodes
+let groupAncestors = new Set();
+const computeGroupAncestors = () => {
+  groupAncestors = new Set();
+  if (ui.group) for (const n of D.nodes) if (groupOf(n) === ui.group) ancestors(n.id).forEach(a => groupAncestors.add(a.id));
+};
+
+/* ---------- graph ---------- */
+const withThumb = (data, o) => { const t = img(o); if (t) data.thumb = t; return data; };
+const els = [];
+for (const n of D.nodes) {
+  els.push({ group: 'nodes', data: withThumb({ id: n.id, label: n.label, kind: n.kind }, n), classes: n.kind });
+  if (n.parent && byId.has(n.parent)) els.push({ group: 'edges', data: { id: `e:${n.parent}>${n.id}`, source: n.parent, target: n.id } });
+  for (const c of n.components ?? []) {
+    els.push({ group: 'nodes', data: withThumb({ id: c.id, label: c.label, kind: 'component' }, c), classes: 'component' });
+    els.push({ group: 'edges', data: { id: `e:${n.id}>${c.id}`, source: n.id, target: c.id }, classes: 'comp-edge' });
+  }
+}
+const style = () => [
+  { selector: 'node', style: {
+    shape: 'round-rectangle', width: 168, height: 104, 'background-color': css('--panel'),
+    'background-fit': 'cover', 'background-position-y': '0%', 'background-clip': 'node',
+    'border-width': 2, 'border-color': css('--k-page'),
+    label: 'data(label)', color: css('--text'), 'font-size': 11, 'text-valign': 'bottom', 'text-margin-y': 6,
+    'text-wrap': 'ellipsis', 'text-max-width': 168, 'text-background-color': css('--bg'), 'text-background-opacity': .85, 'text-background-padding': 2 } },
+  // only nodes that have a shot: an empty data(thumb) crashes cytoscape's renderer
+  { selector: 'node[thumb]', style: { 'background-image': 'data(thumb)' } },
+  { selector: 'node.state', style: { 'border-color': css('--k-state'), 'border-style': 'dashed' } },
+  { selector: 'node.item', style: { 'border-color': css('--k-item'), width: 150, height: 92, 'background-fit': 'contain' } },
+  { selector: 'node.component', style: { 'border-color': css('--k-component'), width: 120, height: 70, 'background-fit': 'contain', 'font-size': 10, 'text-max-width': 120 } },
+  { selector: 'edge', style: { width: 1.5, 'line-color': css('--edge'), 'target-arrow-color': css('--edge'), 'target-arrow-shape': 'triangle', 'arrow-scale': .8,
+    'curve-style': 'taxi', 'taxi-direction': 'rightward', 'taxi-turn': 40 } },
+  { selector: 'edge.comp-edge', style: { 'line-style': 'dotted' } },
+  { selector: '.hidden', style: { display: 'none' } },
+  { selector: '.dim', style: { opacity: .18 } },
+  { selector: 'node.hit', style: { 'border-width': 5, 'border-color': css('--hit') } },
+  { selector: 'node:selected', style: { 'border-width': 5, 'border-color': css('--accent'), 'overlay-opacity': 0 } },
+  { selector: 'edge.path', style: { width: 3, 'line-color': css('--accent'), 'target-arrow-color': css('--accent') } },
+];
+const cy = cytoscape({ container: $('cy'), elements: els, style: style(), minZoom: .05, maxZoom: 3,
+  userZoomingEnabled: false });   // the wheel is handled below: scroll pans, Ctrl+scroll zooms
+
+/* ---------- smooth wheel navigation ----------
+ * Wheel input is queued and drained over a few animation frames (ease-out), so both
+ * scrolling and zooming glide instead of jumping. Ctrl+wheel (and trackpad pinch, which
+ * browsers report as ctrl+wheel) zooms around the cursor; plain wheel pans. */
+const nav = { dx: 0, dy: 0, dz: 0, at: null, raf: 0 };
+const EASE = .22, ZOOM_SPEED = .0022;
+function navFrame() {
+  const sx = nav.dx * EASE, sy = nav.dy * EASE, sz = nav.dz * EASE;
+  if (Math.abs(sx) > .1 || Math.abs(sy) > .1) cy.panBy({ x: -sx, y: -sy });
+  if (Math.abs(sz) > 1e-4) {
+    const level = Math.min(cy.maxZoom(), Math.max(cy.minZoom(), cy.zoom() * Math.exp(sz)));
+    cy.zoom({ level, renderedPosition: nav.at });
+  }
+  nav.dx -= sx; nav.dy -= sy; nav.dz -= sz;
+  const busy = Math.abs(nav.dx) > .5 || Math.abs(nav.dy) > .5 || Math.abs(nav.dz) > 1e-3;
+  nav.raf = busy ? requestAnimationFrame(navFrame) : 0;
+  if (!busy) nav.dx = nav.dy = nav.dz = 0;
+}
+const kick = () => { if (!nav.raf) nav.raf = requestAnimationFrame(navFrame); };
+function zoomBy(logDelta, at) {
+  nav.dz += logDelta;
+  nav.at = at ?? { x: cy.width() / 2, y: cy.height() / 2 };
+  kick();
+}
+$('cy').addEventListener('wheel', e => {
+  e.preventDefault();
+  const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? cy.height() : 1;   // lines / pages -> px
+  let dx = e.deltaX * unit, dy = e.deltaY * unit;
+  if (e.ctrlKey || e.metaKey) {
+    const r = $('cy').getBoundingClientRect();
+    return zoomBy(-dy * ZOOM_SPEED * (e.deltaMode === 0 && Math.abs(dy) < 50 ? 2.5 : 1), { x: e.clientX - r.left, y: e.clientY - r.top });
+  }
+  if (e.shiftKey && !dx) { dx = dy; dy = 0; }   // mouse wheel + Shift scrolls sideways
+  nav.dx += dx; nav.dy += dy;
+  kick();
+}, { passive: false });
+cy.on('grab tapstart', () => { nav.dx = nav.dy = nav.dz = 0; });   // a drag or click stops any glide
+
+function visible(id) {
+  if (ui.forced.has(id)) return true;
+  const n = get(id), k = kindOf(id);
+  if (k === 'component' && !ui.comps) return false;
+  if (k === 'item' && !ui.allItems && !children.has(id)) return false;
+  if (ui.group) {
+    const owner = k === 'component' ? n.owner : n;
+    const g = groupOf(owner);
+    if (g && g !== ui.group) return false;
+    if (!g && owner.id !== ROOT && !groupAncestors.has(owner.id)) return false;
+  }
+  return true;
+}
+function applyVisibility(relayout = true) {
+  cy.batch(() => cy.nodes().forEach(n => n.toggleClass('hidden', !visible(n.id()))));
+  cy.batch(() => cy.edges().forEach(e => e.toggleClass('hidden', e.source().hasClass('hidden') || e.target().hasClass('hidden'))));
+  if (relayout) layout();
+}
+function layout() {
+  // a node unhidden after its classes changed (e.g. by a search) keeps a stale ~0 size until its
+  // style is read, so dagre would stack it on its neighbours: visible() forces that read
+  cy.nodes().not('.hidden').forEach(n => n.visible());
+  cy.elements().not('.hidden').layout({ name: 'dagre', rankDir: 'LR', nodeSep: 18, rankSep: 90, edgeSep: 8, fit: true, padding: 30, animate: false }).run();
+  // a big tree fits at an unreadable zoom: start readable, anchored on the selection or the hub
+  if (cy.zoom() < .45) {
+    const anchor = cy.getElementById(current ?? ROOT);
+    cy.zoom(.55);
+    if (anchor.nonempty()) cy.pan({ x: 60 - anchor.position('x') * .55 + 84, y: cy.height() / 2 - anchor.position('y') * .55 });
+  }
+}
+
+/* ---------- detail ---------- */
+let current = null;
+function select(id, { center = true, push = true } = {}) {
+  const n = get(id); if (!n) return;
+  if (!visible(id)) {
+    ui.forced.add(id); ancestors(id).forEach(a => ui.forced.add(a.id));
+    if (kindOf(id) === 'component') { ui.comps = true; $('tComp').setAttribute('aria-pressed', 'true'); }
+    applyVisibility();
+  }
+  current = id;
+  cy.elements().unselect().removeClass('path');
+  const node = cy.getElementById(id).select();
+  const chain = [...ancestors(id).map(a => a.id), id];
+  for (let i = 1; i < chain.length; i++) cy.getElementById(`e:${chain[i - 1]}>${chain[i]}`).addClass('path');
+  if (center) cy.animate({ center: { eles: node }, zoom: Math.max(cy.zoom(), .7) }, { duration: 250 });
+  if (push) history.replaceState(null, '', '#node=' + encodeURIComponent(id));
+  renderDetail(n);
+}
+function renderDetail(n) {
+  const anc = ancestors(n.id);
+  const kids = (children.get(n.id) ?? []).map(get);
+  const k = kindOf(n.id);
+  const full = img(n, 'full');
+  const tags = [...new Set([...(n.tags ?? [])])];
+  $('detail').innerHTML = `
+    <div class="crumbs">${anc.map(a => `<a data-go="${esc(a.id)}">${esc(a.label)}</a> ›`).join(' ')}</div>
+    <h2><span class="pill k-${k}">${k}</span> ${esc(n.label)}</h2>
+    ${full ? `<div class="shot-wrap"><img class="shot" src="${full}" alt="${esc(n.label)} (${theme})" data-zoom="${esc(n.id)}"></div>
+      <div class="shot-actions"><button data-zoom="${esc(n.id)}">Open full size</button>${shotVariants(n).length > 1 ? `<button data-compare="${esc(n.id)}">Compare variants</button>` : ''}</div>`
+      : `<p class="empty">No ${esc(vname(theme))} screenshot captured.</p>`}
+    <dl class="meta">
+      <dt>id</dt><dd><code>${esc(n.id)}</code></dd>
+      ${n.selector ? `<dt>selector</dt><dd><code>${esc(n.selector)}</code></dd>` : ''}
+      ${n.url ? `<dt>url</dt><dd><code>${esc(n.url)}</code></dd>` : ''}
+      ${n.steps?.length ? `<dt>steps</dt><dd>${n.steps.map(s => `<a class="tag" data-go="${esc(s)}">${esc(get(s)?.label ?? s)}</a>`).join(' → ')}</dd>` : ''}
+      ${groupOf(n.owner ?? n) ? `<dt>group</dt><dd>${esc(D.groups?.[groupOf(n.owner ?? n)] ?? groupOf(n.owner ?? n))}</dd>` : ''}
+      <dt>variants</dt><dd>${shotVariants(n).map(vname).map(esc).join(', ') || '—'}</dd>
+      ${n.volatile ? `<dt>diff</dt><dd>volatile: captured, never compared</dd>` : ''}
+    </dl>
+    ${tags.length ? `<h3>Tags</h3><div class="tags">${tags.map(t => `<span class="tag" data-q="${esc(t)}">${esc(t)}</span>`).join('')}</div>` : ''}
+    ${n.text ? `<h3>Visible text</h3><p class="text">${esc(n.text)}</p>` : ''}
+    ${n.errors?.length ? `<h3>Page errors</h3>${n.errors.map(e => `<p class="warn">${esc(e)}</p>`).join('')}` : ''}
+    ${n.components?.length ? `<h3>Components (${n.components.length})</h3><div class="comps">${n.components.map(c => `
+      <figure data-go="${esc(c.id)}"><img src="${img(c)}" alt="${esc(c.label)}" loading="lazy"><figcaption>${esc(c.label)}<code>${esc(c.selector)}</code></figcaption></figure>`).join('')}</div>` : ''}
+    ${kids.length ? `<h3>Leads to (${kids.length})</h3><ul class="children">${kids.map(c => `<li><a data-go="${esc(c.id)}">${esc(c.label)}</a></li>`).join('')}</ul>` : ''}
+    ${k === 'component' ? `<h3>Part of</h3><ul class="children"><li><a data-go="${esc(n.owner.id)}">${esc(n.owner.label)}</a></li></ul>` : ''}`;
+}
+
+/* ---------- lightbox ---------- */
+let lbId = null;
+function openLightbox(id, compare = false) {
+  const n = get(id); if (!n) return; lbId = id;
+  $('lightbox').classList.toggle('compare', compare);
+  $('lbTitle').textContent = n.label;
+  $('lbCompare').textContent = compare ? 'Single view' : 'Compare variants';
+  $('lbCompare').hidden = shotVariants(n).length < 2;
+  const fig = t => { const k = n.shots?.[t]; return k && IMG[k] ? `<figure><figcaption>${esc(vname(t))}</figcaption><img src="${IMG[k].full}" alt="${esc(n.label)} ${esc(vname(t))}"></figure>` : ''; };
+  $('lbBody').innerHTML = compare ? shotVariants(n).map(fig).join('') : fig(n.shots?.[theme] ? theme : shotVariants(n)[0]);
+  $('lightbox').classList.add('open');
+}
+const closeLightbox = () => { $('lightbox').classList.remove('open'); lbId = null; };
+$('lbClose').onclick = closeLightbox;
+$('lbCompare').onclick = () => openLightbox(lbId, !$('lightbox').classList.contains('compare'));
+$('lightbox').addEventListener('click', e => { if (e.target === $('lightbox') || e.target === $('lbBody')) closeLightbox(); });
+
+/* ---------- search ---------- */
+const docs = [...D.nodes.map(n => ({ ...n, compLabels: (n.components ?? []).map(c => c.label + ' ' + c.selector).join(' ') })), ...comps.values()];
+const fuse = new Fuse(docs, { includeScore: true, ignoreLocation: true, threshold: .34, minMatchCharLength: 2,
+  keys: [{ name: 'label', weight: 3 }, { name: 'id', weight: 2 }, { name: 'tags', weight: 2 }, { name: 'selector', weight: 2 },
+         { name: 'url', weight: 1 }, { name: 'compLabels', weight: 1 }, { name: 'text', weight: .6 }] });
+function search(q) {
+  q = q.trim();
+  cy.elements().removeClass('hit dim');
+  if (!q) { $('searchBox').hidden = true; return; }
+  const hits = fuse.search(q).filter(r => !ui.group || groupOf(r.item.owner ?? r.item) === ui.group || r.item.id === ROOT);
+  $('searchBox').hidden = false;
+  $('count').textContent = `(${hits.length})`;
+  $('results').innerHTML = hits.slice(0, 80).map(({ item }) => {
+    const path = ancestors(item.id).map(a => a.label).join(' › ');
+    return `<li tabindex="0" data-go="${esc(item.id)}"><img src="${img(item)}" alt="" loading="lazy">
+      <div><div class="t"><span class="pill k-${kindOf(item.id)}">${kindOf(item.id)}</span> ${esc(item.label)}</div>
+      <div class="s">${esc(path || item.id)}</div>${item.selector ? `<div class="s"><code>${esc(item.selector)}</code></div>` : ''}</div></li>`;
+  }).join('') || '<li class="empty" style="display:block">No matches.</li>';
+  const ids = new Set(hits.map(h => h.item.id));
+  cy.batch(() => {
+    cy.nodes().forEach(n => { const hit = ids.has(n.id()); n.toggleClass('hit', hit); n.toggleClass('dim', !hit); });
+    cy.edges().addClass('dim');
+  });
+}
+let qt; $('q').addEventListener('input', e => { clearTimeout(qt); qt = setTimeout(() => search(e.target.value), 120); });
+
+/* ---------- events ---------- */
+document.addEventListener('click', e => {
+  const z = e.target.closest('[data-zoom]'); if (z) return openLightbox(z.dataset.zoom);
+  const c = e.target.closest('[data-compare]'); if (c) return openLightbox(c.dataset.compare, true);
+  const g = e.target.closest('[data-go]'); if (g) return select(g.dataset.go);
+  const t = e.target.closest('[data-q]'); if (t) { $('q').value = t.dataset.q; search(t.dataset.q); }
+});
+$('results').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.dataset.go) select(e.target.dataset.go); });
+cy.on('tap', 'node', e => select(e.target.id(), { center: false }));
+cy.on('dbltap', 'node', e => openLightbox(e.target.id()));
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { if (lbId) closeLightbox(); else { $('q').value = ''; search(''); } }
+  if (e.key === '/' && document.activeElement !== $('q')) { e.preventDefault(); $('q').focus(); }
+});
+const toggle = (btn, key) => $(btn).onclick = () => { ui[key] = !ui[key]; $(btn).setAttribute('aria-pressed', ui[key]); ui.forced.clear(); applyVisibility(); search($('q').value); };
+toggle('tItems', 'allItems'); toggle('tComp', 'comps');
+$('group').onchange = e => { ui.group = e.target.value; computeGroupAncestors(); ui.forced.clear(); applyVisibility(); search($('q').value); };
+$('fit').onclick = () => cy.animate({ fit: { eles: cy.elements().not('.hidden'), padding: 30 } }, { duration: 300, easing: 'ease-out-cubic' });
+$('zoomIn').onclick = () => zoomBy(Math.log(1.35));
+$('zoomOut').onclick = () => zoomBy(-Math.log(1.35));
+$('relayout').onclick = layout;
+
+$('variants').innerHTML = VARIANTS.map(v => `<button data-variant="${esc(v.name)}" aria-pressed="false">${v.colorScheme === 'dark' ? '☾ ' : v.colorScheme === 'light' ? '☀ ' : ''}${esc(v.label ?? v.name)}</button>`).join('');
+$('variants').hidden = VARIANTS.length < 2;
+$('variants').addEventListener('click', e => { const b = e.target.closest('[data-variant]'); if (b) setTheme(b.dataset.variant); });
+function setTheme(t) {
+  theme = t; store.set('atlas-variant', t);
+  // the atlas chrome follows the variant's colour scheme; variants without one keep the system theme
+  const scheme = VARIANTS.find(v => v.name === t)?.colorScheme;
+  if (scheme) document.documentElement.dataset.theme = scheme; else delete document.documentElement.dataset.theme;
+  for (const b of $('variants').children) b.setAttribute('aria-pressed', b.dataset.variant === t);
+  cy.style().fromJson(style()).update();
+  cy.batch(() => cy.nodes().forEach(n => { const t = img(get(n.id())); if (t) n.data('thumb', t); else n.removeData('thumb'); }));
+  if (current) renderDetail(get(current));
+  if ($('q').value) search($('q').value);
+}
+
+/* ---------- boot ---------- */
+const kinds = new Map();
+for (const n of D.nodes) kinds.set(n.kind, (kinds.get(n.kind) ?? 0) + 1);
+if (comps.size) kinds.set('component', comps.size);
+const plural = (k, c) => k === 'item' ? (c === 1 ? D.labels?.item ?? 'item' : D.labels?.items ?? 'items') : c === 1 ? k : k + 's';
+const KNOWN = new Set(['page', 'state', 'item', 'component']);
+$('legend').innerHTML = [...kinds.keys()].map(k => `<span><i class="${KNOWN.has(k) ? 'k-' + esc(k) : 'k-page'}"></i>${esc(plural(k, 1))}</span>`).join('');
+$('stats').textContent = [...kinds].map(([k, c]) => `${c} ${plural(k, c)}`).join(' · ') + ` · ${Object.keys(IMG).length} shots · ${new Date(D.generated).toLocaleString()}`;
+setTheme(theme);
+applyVisibility();
+let h = ''; try { h = decodeURIComponent((location.hash.match(/node=([^&]+)/) || [])[1] || ''); } catch {}
+if (h && get(h)) select(h, { push: false }); else if (ROOT) select(ROOT, { center: false, push: false });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo Shop · Home</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">Demo Shop</a>
+  <nav><a href="index.html" aria-current="page">Home</a><a href="about.html">About</a><a href="settings.html">Settings</a></nav>
+  <span id="user" class="user">Guest</span>
+</header>
+<main>
+  <section class="hero">
+    <h1>Products</h1>
+    <p>A tiny static site used to demo Golden Map Atlas.</p>
+    <div class="row">
+      <input id="search" type="search" placeholder="Filter products…">
+      <button id="newBtn" class="primary">New product</button>
+    </div>
+  </section>
+  <section id="grid" class="grid"></section>
+  <p class="muted">Updated <span id="clock"></span></p>
+</main>
+<dialog id="newDialog">
+  <form method="dialog" class="card">
+    <h2>New product</h2>
+    <label>Name <input name="name" value="Lamp"></label>
+    <label>Price <input name="price" value="49"></label>
+    <menu><button value="cancel">Cancel</button><button class="primary" value="ok">Create</button></menu>
+  </form>
+</dialog>
+<script src="app.js"></script>
+</body>
+</html>

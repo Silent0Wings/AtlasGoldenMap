@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo Shop · Settings</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">Demo Shop</a>
+  <nav><a href="index.html">Home</a><a href="about.html">About</a><a href="settings.html" aria-current="page">Settings</a></nav>
+  <span id="user" class="user">Guest</span>
+</header>
+<main>
+  <section class="card">
+    <h1>Settings</h1>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="profile" aria-selected="true">Profile</button>
+      <button role="tab" data-tab="notifications" aria-selected="false">Notifications</button>
+    </div>
+    <div id="tab-profile" class="tab">
+      <label>Display name <input id="displayName" value="Ada"></label>
+      <label>Theme
+        <select id="themeSelect"><option value="">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
+      </label>
+    </div>
+    <div id="tab-notifications" class="tab" hidden>
+      <label class="inline"><input type="checkbox" checked> Order updates</label>
+      <label class="inline"><input type="checkbox"> Newsletter</label>
+    </div>
+    <p><button id="saveBtn" class="primary">Save</button> <span id="saved" class="ok" hidden>Saved ✓</span></p>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
