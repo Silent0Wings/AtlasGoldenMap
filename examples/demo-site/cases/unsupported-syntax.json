@@ -1,0 +1,9 @@
+{
+  "title": "Unsupported syntax (pinned)",
+  "tests": "formatText: literal output for unsupported markup",
+  "tags": [
+    "pinned",
+    "limits"
+  ],
+  "input": "# Heading is not rendered\n\n> Blockquotes stay as literal text.\n\n~~Strikethrough~~ and ![an image](pic.png) stay literal too.\n\nHTML is escaped: <script>alert(1)</script> & \"quotes\"."
+}

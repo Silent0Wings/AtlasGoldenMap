@@ -5,7 +5,7 @@
  * `script\config.bat` / `./script/config.sh` to scaffold a fresh one, or edit this file by hand.
  * See README.md → "Config reference".
  */
-import { defineAtlas, click, fill, seq, type UINode } from './core/atlas';
+import { defineAtlas, fromCases, click, fill, seq, type UINode } from './core/atlas';
 
 const nodes: UINode[] = [
   {
@@ -33,6 +33,9 @@ const nodes: UINode[] = [
     steps: click('[data-tab=notifications]'), ready: '#tab-notifications', tags: ['email'] },
   { id: 'settings:saved', label: 'Settings saved', kind: 'state', parent: 'settings',
     steps: seq(fill('#displayName', 'Grace'), click('#saveBtn')), ready: '#saved', tags: ['confirmation'] },
+
+  // one isolated node per JSON case; the demo app's harness page renders each (examples/demo-site/harness.html)
+  ...fromCases({ dir: 'examples/demo-site/cases', harness: '/harness.html', parent: 'home', group: 'cases' }),
 ];
 
 export default defineAtlas({
@@ -52,7 +55,8 @@ export default defineAtlas({
     'signed-in': { localStorage: { 'demo-user': JSON.stringify({ name: 'Ada', cart: 2 }) } },
   },
   mask: ['#clock'],
-  groups: { shop: 'Shop', account: 'Account' },
+  review: { threshold: 0.0005 },
+  groups: { shop: 'Shop', account: 'Account', cases: 'Formatter cases' },
   labels: { item: 'product', items: 'products' },
 
   // pages reachable by links that no node above covers (about, team) are added by `run crawl`

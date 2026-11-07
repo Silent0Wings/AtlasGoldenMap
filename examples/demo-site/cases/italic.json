@@ -1,0 +1,9 @@
+{
+  "title": "Italic text",
+  "tests": "formatText: *italic*",
+  "tags": [
+    "inline",
+    "italic"
+  ],
+  "input": "Plain words, then *italic words* in the middle, and *an italic phrase at the end*."
+}

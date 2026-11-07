@@ -1,0 +1,9 @@
+{
+  "title": "Bulleted list",
+  "tests": "formatText: - lists",
+  "tags": [
+    "block",
+    "list"
+  ],
+  "input": "Shopping list:\n- Desk\n- Chair with **lumbar** support\n- Plant\n\nAnything after the list is a new paragraph."
+}

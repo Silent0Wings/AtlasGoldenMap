@@ -37,11 +37,6 @@ export default defineConfig({
   timeout: atlas.timeout ?? 60_000,
   reporter: [['list'], ['html', { open: 'never', outputFolder: path.join(HERE, 'report') }]],
   outputDir: path.join(HERE, 'test-results'),
-  // one golden set per variant: goldens/<variant>/*.png
-  snapshotPathTemplate: path.join(HERE, 'goldens', '{projectName}', '{arg}{ext}').replace(/\\/g, '/'),
-  expect: {
-    toHaveScreenshot: { maxDiffPixelRatio: atlas.maxDiffPixelRatio ?? 0.01, animations: 'disabled', caret: 'hide' },
-  },
   use: {
     baseURL: atlas.baseURL,
     viewport: { width: 1280, height: 800 },

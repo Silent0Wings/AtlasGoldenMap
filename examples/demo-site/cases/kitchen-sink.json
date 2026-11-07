@@ -1,0 +1,9 @@
+{
+  "title": "Kitchen sink (mixed)",
+  "tests": "formatText: all of the above",
+  "tags": [
+    "mixed",
+    "regression"
+  ],
+  "input": "# Notes\n\nThe **new** catalogue is *live*. Read the [changelog](changelog.html) or run `npm run atlas`.\n\n- Check the **price** column\n- Keep <stock> values in *sync*\n\n| Item | Status |\n|---|---|\n| Desk | **ok** |\n| Lamp | *new* |\n\nFinal line with a [link](https://example.com) and `code & more`."
+}

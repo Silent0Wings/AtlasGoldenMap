@@ -1,0 +1,9 @@
+{
+  "title": "Bold text",
+  "tests": "formatText: **bold**",
+  "tags": [
+    "inline",
+    "bold"
+  ],
+  "input": "Plain words, then **bold words** in the middle, and **a bold phrase at the end**."
+}

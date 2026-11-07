@@ -1,0 +1,9 @@
+{
+  "title": "Inline code",
+  "tests": "formatText: `code` spans",
+  "tags": [
+    "inline",
+    "code"
+  ],
+  "input": "Call `formatText(src)` to render, or use `<b>not bold</b>` inside a code span, which stays escaped."
+}

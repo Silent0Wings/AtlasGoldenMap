@@ -1,10 +1,10 @@
 /**
- * golden.spec.ts — one test per UI node per variant. Takes a full-page golden, one golden
- * per visible component and one per collection item, then writes
- * shots/nodes/<variant>/<file>.json for build-dashboard.mjs.
+ * golden.spec.ts — one test per UI node per variant. Captures a full-page shot, one shot per
+ * visible component and one per collection item, evaluates each against the approved golden
+ * (core/store.mjs) and writes shots/nodes/<variant>/<file>.json for build-dashboard.mjs.
+ * Goldens are never written here: approve them in the review UI (`npm run review`).
  *
- *   npx playwright test --update-snapshots   # create / refresh goldens
- *   npx playwright test                      # fail on visual drift
+ *   npx playwright test       # capture; fails on any shot that is not match/volatile
  *
  * App-specific behaviour comes only from ../atlas.config.ts.
  */
@@ -13,6 +13,10 @@ import fs from 'fs';
 import path from 'path';
 import config from '../atlas.config';
 import { ATLAS_ROOT, loadNodes, chainOf, groupOf, fileOf, slug, type UINode, type Variant } from './atlas';
+import { evaluate, sha256, writeAtomic } from './store.mjs';
+
+type Info = Parameters<typeof evaluate>[0]['info'];
+type ReviewRecord = ReturnType<typeof evaluate>;
 
 const OUT = path.join(ATLAS_ROOT, 'shots', 'nodes');
 const NODES = await loadNodes(config);
@@ -92,12 +96,29 @@ async function isVisible(loc: Locator) {
   return (await loc.count()) > 0 && (await loc.first().isVisible());
 }
 
+/** Sorted-key JSON for config hashes; functions hash by their source (or step tag), so edited steps or prepare hooks count. */
+function stable(v: unknown): string {
+  return JSON.stringify(v, (_k, x) => typeof x === 'function' ? (x.src ?? x.toString())
+    : x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map(k => [k, x[k]])) : x);
+}
+
+/** Retake until two consecutive captures are byte-identical (at most 3 retakes): hides late paints and animation residue. */
+async function stableShot(take: () => Promise<Buffer>): Promise<Buffer> {
+  let prev = await take();
+  for (let i = 0; i < 3; i++) {
+    const next = await take();
+    if (next.equals(prev)) return next;
+    prev = next;
+  }
+  return prev;
+}
+
 const variantOf = (name: string) => config.variants.find(v => v.name === name)!;
 
 for (const node of NODES) {
   test(node.id, async ({ page }) => {
-    // collections shoot one image per element, ~1.5s each
-    test.setTimeout(node.timeout ?? (node.collection ? 60_000 + (node.collection.max ?? 100) * 3_000 : config.timeout ?? 60_000));
+    // collections shoot one image per element, ~2.5s each (two stable takes plus the comparison)
+    test.setTimeout(node.timeout ?? (node.collection ? 60_000 + (node.collection.max ?? 100) * 5_000 : config.timeout ?? 60_000));
     const chain = chainOf(node, byId);
     const root = chain[0];
     const errors: string[] = [];
@@ -114,13 +135,44 @@ for (const node of NODES) {
     await page.locator(node.ready ?? 'body').first().waitFor({ state: 'visible', timeout: 20_000 });
     await settle(page);
 
-    const mask = [...(config.mask ?? []), ...(node.mask ?? [])].map(s => page.locator(s));
+    const masks = [...(config.mask ?? []), ...(node.mask ?? [])];
+    const mask = masks.map(s => page.locator(s));
     const base = fileOf(node.id);
-    // volatile nodes are captured for the atlas but never diffed
-    const shoot = async (target: Page | Locator, name: string, opts: any = {}) => node.volatile
-      ? target.screenshot({ ...opts, path: test.info().snapshotPath(name), animations: 'disabled' })
-      : expect.soft(target as any).toHaveScreenshot(name, opts);
-    await shoot(page, `${base}.png`, { fullPage: true, mask });
+    const group = groupOf(node, byId) ?? null;
+    const fx = root.fixture ? config.fixtures?.[root.fixture] : undefined;
+    // everything a shot depends on besides its pixels: any change here resets the review decision
+    const shared = {
+      node, ancestors: chain.slice(0, -1), fixture: fx ?? null, variant,
+      global: { mask: config.mask, freezeCss: config.freezeCss, clock: config.clock, seedRandom: config.seedRandom, settle: config.settle },
+    };
+    const records: ReviewRecord[] = [];
+
+    // stable screenshot -> htmlHash (on a clone, masks emptied) -> configHash -> store.evaluate
+    const shoot = async (target: Locator | 'page', file: string, info: Info, extra: unknown, maskLocs: Locator[] = []) => {
+      const opts = { animations: 'disabled' as const, caret: 'hide' as const, mask: maskLocs };
+      const take = (): Promise<Buffer> => target === 'page'
+        ? page.screenshot({ ...opts, fullPage: true })
+        : target.screenshot(opts);
+      // volatile shots are never compared, so a single take is enough
+      const actualPng = node.volatile ? await take() : await stableShot(take);
+      const el = target === 'page' ? page.locator('body') : target;
+      // null when markup hashing is off, so the store treats it as disabled (not as the hash of '')
+      const htmlHash = config.review?.htmlHash === false ? null : sha256(await el.evaluate((src, { sels, attrs }) => {
+        const w = document.createElement('div');
+        w.append(src.cloneNode(true));
+        w.querySelectorAll('script').forEach(s => s.remove());
+        for (const sel of sels) w.querySelectorAll(sel).forEach(m => { m.innerHTML = ''; });
+        w.querySelectorAll('*').forEach(e => { for (const a of attrs) e.removeAttribute(a); });
+        return w.innerHTML.replace(/\s+/g, ' ');
+      }, { sels: masks, attrs: ['nonce', ...(config.review?.ignoreAttributes ?? [])] }));
+      return evaluate({
+        variant: variant.name, file, actualPng, htmlHash, configHash: sha256(stable({ shared, extra })),
+        volatile: !!node.volatile, info, threshold: config.review?.threshold, pixelThreshold: config.review?.pixelThreshold,
+      });
+    };
+
+    const pageRec = await shoot('page', base, { id: node.id, nodeId: node.id, label: node.label, kind: node.kind, group, tags: node.tags ?? [] }, null, mask);
+    records.push(pageRec);
 
     const components: any[] = [];
     for (const c of node.components ?? []) {
@@ -128,11 +180,12 @@ for (const node of NODES) {
       if (!(await isVisible(loc))) continue;
       const f = `${base}--${c.name}`;
       await loc.scrollIntoViewIfNeeded();
-      await shoot(loc, `${f}.png`, { mask });
-      components.push({ id: `${node.id}/${c.name}`, label: c.label, selector: c.selector, img: `${f}.png` });
+      const id = `${node.id}/${c.name}`;
+      const r = await shoot(loc, f, { id, nodeId: node.id, label: c.label, kind: 'component', group, tags: node.tags ?? [] }, { component: c }, mask);
+      records.push(r);
+      components.push({ id, label: c.label, selector: c.selector, img: `${f}.png`, status: r.status });
     }
 
-    const group = groupOf(node, byId) ?? null;
     const items: any[] = [];
     if (node.collection) {
       const col = node.collection;
@@ -154,9 +207,11 @@ for (const node of NODES) {
         const id = `${prefix}:${key}`;
         const f = fileOf(id);
         await el.scrollIntoViewIfNeeded();
-        await shoot(el, `${f}.png`);
-        items.push({ id, label: label || `${node.label} #${i + 1}`, kind: col.kind ?? 'item', parent: node.id, group,
-          tags, selector: `${col.selector} >> nth=${i}`, url: null, img: `${f}.png`, components: [] });
+        const itemLabel = label || `${node.label} #${i + 1}`;
+        const r = await shoot(el, f, { id, nodeId: node.id, label: itemLabel, kind: col.kind ?? 'item', group, tags }, { collection: col, label: itemLabel }, mask);
+        records.push(r);
+        items.push({ id, label: itemLabel, kind: col.kind ?? 'item', parent: node.id, group,
+          tags, selector: `${col.selector} >> nth=${i}`, url: null, img: `${f}.png`, status: r.status, components: [] });
       }
     }
 
@@ -166,9 +221,14 @@ for (const node of NODES) {
       id: node.id, label: node.label, kind: node.kind, parent: node.parent ?? null, group,
       tags: node.tags ?? [], url: root.url ?? null, volatile: !!node.volatile,
       steps: chain.slice(1).map(c => c.id), text: await textOf(page), errors,
-      img: `${base}.png`, components,
+      img: `${base}.png`, status: pageRec.status, components,
     };
     fs.writeFileSync(path.join(out, `${base}.json`), JSON.stringify([rec, ...items], null, 2));
+
+    // written before the check so the dashboard still shows the statuses of a failing node
+    const problems = records.filter(r => r.status !== 'match' && r.status !== 'volatile')
+      .map(r => `${r.key}: ${r.status} (${r.reasons.join(', ')}) ${r.decision}`);
+    expect(problems, `visual check failed:\n${problems.join('\n')}`).toEqual([]);
   });
 }
 
@@ -177,10 +237,9 @@ function writeMeta() {
   const meta = {
     title: config.title, root: ROOT, groups: config.groups ?? {}, labels: config.labels ?? {},
     variants: config.variants.map(v => ({ name: v.name, label: v.label ?? v.name, colorScheme: v.colorScheme ?? null })),
+    reviewPort: config.review?.port ?? 8097,
   };
   fs.mkdirSync(path.join(ATLAS_ROOT, 'shots'), { recursive: true });
   const file = path.join(ATLAS_ROOT, 'shots', 'meta.json');
-  const tmp = `${file}.${process.pid}.tmp`;   // several workers write the same content: rename is atomic
-  fs.writeFileSync(tmp, JSON.stringify(meta, null, 2));
-  fs.renameSync(tmp, file);
+  writeAtomic(file, JSON.stringify(meta, null, 2));   // several workers write the same content, so the write must be atomic
 }

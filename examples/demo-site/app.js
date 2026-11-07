@@ -41,3 +41,53 @@ if ($('saveBtn')) {
     $('saved').hidden = false;
   });
 }
+
+// Tiny markdown-ish formatter (used by the cases harness). Escapes HTML first, then applies the markup:
+// **bold**, *italic*, `code`, [text](url) (no javascript: or other schemes), "- " lists and "| a | b |" tables (second line is a |---|---| separator).
+// Anything else (headings, quotes, strikethrough, images) is left as literal text.
+window.formatText = function formatText(src) {
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  // Decide by the protocol the URL parser actually yields (it strips leading C0/space chars, so "\x01javascript:" is caught).
+  // Relative URLs resolve against the dummy base and come out as http:.
+  const isSafeLink = url => { try { const p = new URL(url, 'http://x').protocol; return p === 'http:' || p === 'https:'; } catch { return false; } };
+  const inline = s => esc(s).split(/(`[^`]+`)/).map((part, i) => {
+    if (i % 2) return `<code>${part.slice(1, -1)}</code>`;   // code spans keep their text untouched
+    return part
+      .replace(/(!?)\[([^\]]+)\]\(([^)\s]+)\)/g, (m, bang, text, url) => (!bang && isSafeLink(url))
+        ? `<a href="${url}">${text}</a>` : m)
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  }).join('');
+  const isList = l => /^\s*-\s+/.test(l);
+  const isSep = l => l.includes('|') && /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/.test(l);
+  const isTableStart = (lines, i) => lines[i].includes('|') && i + 1 < lines.length && isSep(lines[i + 1]);
+  const cells = l => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
+
+  const lines = String(src ?? '').replace(/\r\n?/g, '\n').split('\n');
+  const out = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (!line.trim()) { i++; continue; }
+    if (isList(line)) {
+      const items = [];
+      while (i < lines.length && isList(lines[i])) items.push(lines[i++].replace(/^\s*-\s+/, ''));
+      out.push(`<ul>${items.map(t => `<li>${inline(t)}</li>`).join('')}</ul>`);
+      continue;
+    }
+    if (isTableStart(lines, i)) {
+      const head = cells(lines[i]);
+      i += 2;
+      const rows = [];
+      while (i < lines.length && lines[i].trim() && lines[i].includes('|')) rows.push(cells(lines[i++]));
+      out.push(`<table><thead><tr>${head.map(c => `<th>${inline(c)}</th>`).join('')}</tr></thead>` +
+        `<tbody>${rows.map(r => `<tr>${r.map(c => `<td>${inline(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
+      continue;
+    }
+    const para = [];
+    while (i < lines.length && lines[i].trim() && !isList(lines[i]) && !isTableStart(lines, i)) para.push(lines[i++]);
+    out.push(`<p>${para.map(inline).join('<br>')}</p>`);
+  }
+  return out.join('\n');
+};

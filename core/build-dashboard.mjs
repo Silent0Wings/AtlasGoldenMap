@@ -1,6 +1,7 @@
 /**
  * build-dashboard.mjs — shots/meta.json + shots/nodes/<variant>/*.json + goldens/<variant>/*.png
  *   -> dashboard.html (single offline file: libs, data and WebP images inlined).
+ *   Images come from review/actual/<variant>/<file> (latest capture), else goldens/<variant>/<file>.
  *
  *   node core/build-dashboard.mjs [--thumb 320] [--full 1000] [--q 0.72] [--out dashboard.html]
  */
@@ -28,15 +29,18 @@ for (const theme of VARIANTS) {
   if (!fs.existsSync(dir)) continue;
   for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.json'))) {
     for (const rec of JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'))) {
-      const n = nodes.get(rec.id) ?? { ...rec, shots: {}, components: [], errors: [] };
+      // status: fragment's rec.status is a string per variant -> n.status = { [variant]: status }
+      const n = nodes.get(rec.id) ?? { ...rec, shots: {}, components: [], errors: [], status: {} };
       n.shots[theme] = rec.img;
+      if (rec.status) n.status[theme] = rec.status;
       n.errors = [...new Set([...n.errors, ...(rec.errors ?? [])])];
       if (!n.text && rec.text) n.text = rec.text;
       if (rec.tags) n.tags = [...new Set([...(n.tags ?? []), ...rec.tags])];
       for (const c of rec.components ?? []) {
         let nc = n.components.find(x => x.id === c.id);
-        if (!nc) n.components.push(nc = { id: c.id, label: c.label, selector: c.selector, shots: {} });
+        if (!nc) n.components.push(nc = { id: c.id, label: c.label, selector: c.selector, shots: {}, status: {} });
         nc.shots[theme] = c.img;
+        if (c.status) nc.status[theme] = c.status;
       }
       delete n.img; delete n.theme;
       nodes.set(rec.id, n);
@@ -53,6 +57,9 @@ const jobs = [];   // { theme, file, set }
 for (const n of nodes.values())
   for (const owner of [n, ...n.components])
     for (const [theme, file] of Object.entries(owner.shots)) jobs.push({ theme, file, owner });
+// latest capture (review/actual, git-ignored) wins over the approved golden
+const shotFile = (theme, file) => ['review/actual', 'goldens']
+  .map(dir => path.join(ROOT, dir, theme, file)).find(p => fs.existsSync(p)) ?? null;
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
@@ -61,8 +68,8 @@ const cache = new Map();
 let missing = 0;
 for (let i = 0; i < jobs.length; i += 24) {
   const batch = jobs.slice(i, i + 24).map(j => {
-    const p = path.join(ROOT, 'goldens', j.theme, j.file);
-    if (!fs.existsSync(p)) { missing++; return null; }
+    const p = shotFile(j.theme, j.file);
+    if (!p) { missing++; return null; }
     return { key: `${j.theme}/${j.file}`, src: 'data:image/png;base64,' + fs.readFileSync(p).toString('base64') };
   }).filter(b => b && !cache.has(b.key));
   const out = await page.evaluate(async ({ batch, THUMB_W, FULL_W, Q }) => {

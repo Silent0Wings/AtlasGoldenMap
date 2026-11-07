@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Formatter case · Demo Shop</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  body { margin: 0; }
+  .case-box { width: 760px; padding: 24px; background: var(--bg); color: var(--text); }
+  .case-title { font: 600 13px/1.4 system-ui, "Segoe UI", sans-serif; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: 0 0 12px; }
+  .case-panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+  #case-root { font: 15px/1.6 system-ui, "Segoe UI", sans-serif; overflow-wrap: anywhere; }
+  #case-root p { margin: 0 0 12px; }
+  #case-root p:last-child, #case-root ul:last-child, #case-root table:last-child { margin-bottom: 0; }
+  #case-root ul { margin: 0 0 12px; padding-left: 22px; }
+  #case-root code { font: 13px/1.4 ui-monospace, Consolas, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  #case-root table { border-collapse: collapse; width: 100%; margin: 0 0 12px; }
+  #case-root th, #case-root td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+  #case-root th { background: var(--bg); font-weight: 600; }
+  #case-root a { color: var(--accent); }
+  #case-root .case-error { color: var(--muted); font-style: italic; }
+</style>
+</head>
+<body>
+<div class="case-box">
+  <p id="case-title" class="case-title">Formatter case</p>
+  <div class="case-panel">
+    <div id="case-root"></div>
+  </div>
+</div>
+<script src="app.js"></script>
+<script src="harness.js"></script>
+</body>
+</html>

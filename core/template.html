@@ -9,6 +9,7 @@
 :root {
   --bg: #f6f5f1; --panel: #ffffff; --panel-2: #f0eee8; --line: #dedbd2; --text: #1d1c1a; --muted: #6b6860;
   --accent: #0f6b6b; --accent-soft: #d8ecea; --hit: #e8890c; --warn: #b4441c;
+  --st-changed: #d9480f; --st-new: #2f6fd0;
   --k-page: #0f6b6b; --k-state: #7a4fc4; --k-item: #2f6fd0; --k-component: #b0712a;
   --edge: #b9b5aa; --shadow: 0 1px 2px rgb(0 0 0 / .06), 0 4px 16px rgb(0 0 0 / .06);
   color-scheme: light;
@@ -17,6 +18,7 @@
   :root:not([data-theme="light"]) {
     --bg: #121315; --panel: #1b1c1f; --panel-2: #232428; --line: #34363b; --text: #ecebe7; --muted: #9d9b95;
     --accent: #5cc4bd; --accent-soft: #1f3b3a; --hit: #ffad3b; --warn: #ff8a65;
+    --st-changed: #ff7a45; --st-new: #79a8f2;
     --k-page: #5cc4bd; --k-state: #b394f2; --k-item: #79a8f2; --k-component: #e3a85c;
     --edge: #4a4c52; --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 6px 20px rgb(0 0 0 / .35);
     color-scheme: dark;
@@ -25,6 +27,7 @@
 :root[data-theme="dark"] {
   --bg: #121315; --panel: #1b1c1f; --panel-2: #232428; --line: #34363b; --text: #ecebe7; --muted: #9d9b95;
   --accent: #5cc4bd; --accent-soft: #1f3b3a; --hit: #ffad3b; --warn: #ff8a65;
+  --st-changed: #ff7a45; --st-new: #79a8f2;
   --k-page: #5cc4bd; --k-state: #b394f2; --k-item: #79a8f2; --k-component: #e3a85c;
   --edge: #4a4c52; --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 6px 20px rgb(0 0 0 / .35);
   color-scheme: dark;
@@ -50,6 +53,7 @@ header h1 .logo[src=""] { display: none; }
 .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .chip { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 10px; cursor: pointer; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
 .chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.chip[hidden] { display: none; }
 .chip .dot { width: 8px; height: 8px; border-radius: 50%; }
 select.chip { padding-right: 6px; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
@@ -61,8 +65,10 @@ main { display: grid; grid-template-columns: 1fr 400px; min-height: 0; }
 #cy { min-height: 0; position: relative; }
 .legend { position: absolute; left: 12px; bottom: 12px; z-index: 2; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 11px; color: var(--muted); display: flex; gap: 10px; box-shadow: var(--shadow); }
 .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.legend i.ring-changed { background: none; border: 2px solid var(--st-changed); }
+.legend i.ring-new { background: none; border: 2px dashed var(--st-new); }
 .graph-tools { position: absolute; right: 12px; bottom: 12px; z-index: 2; display: flex; gap: 6px; }
-.graph-hint { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 2; font-size: 11px; color: var(--muted);
+.graph-hint { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 2; font-size: 11px; color: var(--muted);
   background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; white-space: nowrap; pointer-events: none; opacity: .9; }
 @media (max-width: 1200px) { .graph-hint { display: none; } }
 .graph-tools button { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 5px 10px; cursor: pointer; font-size: 12px; box-shadow: var(--shadow); }
@@ -81,6 +87,11 @@ aside h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; co
 .results .s { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pill { background: var(--k-page); display: inline-block; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; padding: 1px 6px; border-radius: 4px; color: var(--panel); vertical-align: 1px; }
 .k-page { background: var(--k-page); } .k-state { background: var(--k-state); } .k-item { background: var(--k-item); } .k-component { background: var(--k-component); }
+.pill.s-changed { background: var(--st-changed); } .pill.s-new { background: var(--st-new); }
+.pill.s-match, .pill.s-volatile { background: var(--muted); }
+.needs-review { font-size: 12px; margin: 0 0 8px; color: var(--st-changed); }
+.needs-review.s-new { color: var(--st-new); }
+.chip .dot.st-changed { background: var(--st-changed); } .chip .dot.st-new { background: var(--st-new); }
 .crumbs { font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 4px; margin-bottom: 6px; }
 .crumbs a { color: var(--accent); cursor: pointer; text-decoration: none; }
 .crumbs a:hover { text-decoration: underline; }
@@ -136,6 +147,7 @@ dl.meta dt { color: var(--muted); } dl.meta dd { margin: 0; min-width: 0; }
     <select id="group" class="chip" aria-label="Group" hidden><option value="">All groups</option></select>
     <button class="chip" id="tItems" aria-pressed="false" hidden title="Show every collection item (otherwise only items that lead somewhere)"><span class="dot k-item"></span><span id="tItemsLabel">All items</span></button>
     <button class="chip" id="tComp" aria-pressed="false" title="Show sub-component nodes"><span class="dot k-component"></span>Components</button>
+    <button class="chip" id="tChanged" aria-pressed="false" hidden title="Show only nodes changed or new in the current variant, plus their ancestors"><span class="dot st-changed"></span>Changed only</button>
     <div class="seg" role="group" aria-label="Screenshot variant" id="variants"></div>
   </div>
   <div class="stats" id="stats"></div>
@@ -204,7 +216,18 @@ $('group').hidden = !groups.length;
 const hasItems = D.nodes.some(n => n.kind === 'item');
 $('tItems').hidden = !hasItems;
 $('tItemsLabel').textContent = `All ${D.labels?.items ?? 'items'}`;
-const ui = { allItems: false, comps: false, group: '', forced: new Set() };
+const ui = { allItems: false, comps: false, group: '', forced: new Set(), changed: false };
+// review status in the current variant (fragments carry status per variant; missing = none)
+const statusOf = o => o.status?.[theme] ?? null;
+const isFlagged = o => { const s = statusOf(o); return s === 'changed' || s === 'new'; };
+const allEntries = [...byId.values(), ...comps.values()];
+const countStatus = s => allEntries.filter(o => statusOf(o) === s).length;
+// "Changed only": flagged nodes/components + their ancestors (+ root, so the graph is never empty)
+let changedKeep = new Set();
+function computeChangedKeep() {
+  changedKeep = new Set([ROOT]);
+  for (const o of allEntries) if (isFlagged(o)) { changedKeep.add(o.id); ancestors(o.id).forEach(a => changedKeep.add(a.id)); }
+}
 // with a group filter on, ungrouped nodes stay visible only as ancestors of that group's nodes
 let groupAncestors = new Set();
 const computeGroupAncestors = () => {
@@ -241,6 +264,9 @@ const style = () => [
   { selector: '.hidden', style: { display: 'none' } },
   { selector: '.dim', style: { opacity: .18 } },
   { selector: 'node.hit', style: { 'border-width': 5, 'border-color': css('--hit') } },
+  // review status rings: outlines, so the border stays free for selection / search hits
+  { selector: 'node.st-changed', style: { 'outline-width': 4, 'outline-color': css('--st-changed'), 'outline-style': 'solid', 'outline-offset': 3 } },
+  { selector: 'node.st-new', style: { 'outline-width': 3, 'outline-color': css('--st-new'), 'outline-style': 'dashed', 'outline-offset': 3 } },
   { selector: 'node:selected', style: { 'border-width': 5, 'border-color': css('--accent'), 'overlay-opacity': 0 } },
   { selector: 'edge.path', style: { width: 3, 'line-color': css('--accent'), 'target-arrow-color': css('--accent') } },
 ];
@@ -288,8 +314,11 @@ cy.on('grab tapstart', () => { nav.dx = nav.dy = nav.dz = 0; });   // a drag or 
 function visible(id) {
   if (ui.forced.has(id)) return true;
   const n = get(id), k = kindOf(id);
-  if (k === 'component' && !ui.comps) return false;
-  if (k === 'item' && !ui.allItems && !children.has(id)) return false;
+  if (ui.changed && !changedKeep.has(id)) return false;
+  // changed/new components and items are shown in changed mode even when their kind toggle is off
+  const flagged = ui.changed && isFlagged(n);
+  if (k === 'component' && !ui.comps && !flagged) return false;
+  if (k === 'item' && !ui.allItems && !children.has(id) && !flagged) return false;
   if (ui.group) {
     const owner = k === 'component' ? n.owner : n;
     const g = groupOf(owner);
@@ -297,6 +326,17 @@ function visible(id) {
     if (!g && owner.id !== ROOT && !groupAncestors.has(owner.id)) return false;
   }
   return true;
+}
+function applyStatus() {
+  cy.batch(() => cy.nodes().forEach(n => {
+    const s = statusOf(get(n.id()));
+    n.toggleClass('st-changed', s === 'changed'); n.toggleClass('st-new', s === 'new');
+  }));
+}
+function renderStats() {
+  $('stats').textContent = [...kinds].map(([k, c]) => `${c} ${plural(k, c)}`).join(' · ')
+    + ` · ${countStatus('changed')} changed · ${countStatus('new')} new`
+    + ` · ${Object.keys(IMG).length} shots · ${new Date(D.generated).toLocaleString()}`;
 }
 function applyVisibility(relayout = true) {
   cy.batch(() => cy.nodes().forEach(n => n.toggleClass('hidden', !visible(n.id()))));
@@ -338,11 +378,13 @@ function renderDetail(n) {
   const anc = ancestors(n.id);
   const kids = (children.get(n.id) ?? []).map(get);
   const k = kindOf(n.id);
+  const s = statusOf(n), flagged = s === 'changed' || s === 'new';
   const full = img(n, 'full');
   const tags = [...new Set([...(n.tags ?? [])])];
   $('detail').innerHTML = `
     <div class="crumbs">${anc.map(a => `<a data-go="${esc(a.id)}">${esc(a.label)}</a> ›`).join(' ')}</div>
-    <h2><span class="pill k-${k}">${k}</span> ${esc(n.label)}</h2>
+    <h2><span class="pill k-${k}">${k}</span>${s ? ` <span class="pill s-${esc(s)}">${esc(s)}</span>` : ''} ${esc(n.label)}</h2>
+    ${flagged ? `<p class="needs-review s-${s}">Needs review: open the review UI with <code>run review</code></p>` : ''}
     ${full ? `<div class="shot-wrap"><img class="shot" src="${full}" alt="${esc(n.label)} (${theme})" data-zoom="${esc(n.id)}"></div>
       <div class="shot-actions"><button data-zoom="${esc(n.id)}">Open full size</button>${shotVariants(n).length > 1 ? `<button data-compare="${esc(n.id)}">Compare variants</button>` : ''}</div>`
       : `<p class="empty">No ${esc(vname(theme))} screenshot captured.</p>`}
@@ -422,7 +464,7 @@ document.addEventListener('keydown', e => {
   if (e.key === '/' && document.activeElement !== $('q')) { e.preventDefault(); $('q').focus(); }
 });
 const toggle = (btn, key) => $(btn).onclick = () => { ui[key] = !ui[key]; $(btn).setAttribute('aria-pressed', ui[key]); ui.forced.clear(); applyVisibility(); search($('q').value); };
-toggle('tItems', 'allItems'); toggle('tComp', 'comps');
+toggle('tItems', 'allItems'); toggle('tComp', 'comps'); toggle('tChanged', 'changed');
 $('group').onchange = e => { ui.group = e.target.value; computeGroupAncestors(); ui.forced.clear(); applyVisibility(); search($('q').value); };
 $('fit').onclick = () => cy.animate({ fit: { eles: cy.elements().not('.hidden'), padding: 30 } }, { duration: 300, easing: 'ease-out-cubic' });
 $('zoomIn').onclick = () => zoomBy(Math.log(1.35));
@@ -439,7 +481,11 @@ function setTheme(t) {
   if (scheme) document.documentElement.dataset.theme = scheme; else delete document.documentElement.dataset.theme;
   for (const b of $('variants').children) b.setAttribute('aria-pressed', b.dataset.variant === t);
   cy.style().fromJson(style()).update();
+  applyStatus();
   cy.batch(() => cy.nodes().forEach(n => { const t = img(get(n.id())); if (t) n.data('thumb', t); else n.removeData('thumb'); }));
+  computeChangedKeep();
+  if (ui.changed) applyVisibility();
+  renderStats();
   if (current) renderDetail(get(current));
   if ($('q').value) search($('q').value);
 }
@@ -450,8 +496,10 @@ for (const n of D.nodes) kinds.set(n.kind, (kinds.get(n.kind) ?? 0) + 1);
 if (comps.size) kinds.set('component', comps.size);
 const plural = (k, c) => k === 'item' ? (c === 1 ? D.labels?.item ?? 'item' : D.labels?.items ?? 'items') : c === 1 ? k : k + 's';
 const KNOWN = new Set(['page', 'state', 'item', 'component']);
-$('legend').innerHTML = [...kinds.keys()].map(k => `<span><i class="${KNOWN.has(k) ? 'k-' + esc(k) : 'k-page'}"></i>${esc(plural(k, 1))}</span>`).join('');
-$('stats').textContent = [...kinds].map(([k, c]) => `${c} ${plural(k, c)}`).join(' · ') + ` · ${Object.keys(IMG).length} shots · ${new Date(D.generated).toLocaleString()}`;
+const flaggedAny = allEntries.some(o => Object.values(o.status ?? {}).some(s => s === 'changed' || s === 'new'));
+$('legend').innerHTML = [...kinds.keys()].map(k => `<span><i class="${KNOWN.has(k) ? 'k-' + esc(k) : 'k-page'}"></i>${esc(plural(k, 1))}</span>`).join('')
+  + (flaggedAny ? '<span><i class="ring-changed"></i>changed</span><span><i class="ring-new"></i>new</span>' : '');
+$('tChanged').hidden = !flaggedAny;
 setTheme(theme);
 applyVisibility();
 let h = ''; try { h = decodeURIComponent((location.hash.match(/node=([^&]+)/) || [])[1] || ''); } catch {}

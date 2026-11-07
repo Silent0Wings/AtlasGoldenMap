@@ -15,6 +15,9 @@
     "capture": "node core/cli.mjs run capture",
     "build": "node core/cli.mjs run build",
     "check": "node core/cli.mjs run check",
+    "review": "node core/cli.mjs run review",
+    "approve-new": "node core/cli.mjs run approve-new",
+    "approve-all": "node core/cli.mjs run approve-all",
     "crawl": "node core/cli.mjs run crawl",
     "open": "node core/cli.mjs run open",
     "report": "node core/cli.mjs run report",
@@ -28,6 +31,8 @@
     "cytoscape-dagre": "^4.0.1",
     "dagre": "^0.8.5",
     "fuse.js": "^7.5.0",
+    "pixelmatch": "^5.3.0",
+    "pngjs": "^7.0.0",
     "typescript": "^5.6.3"
   }
 }

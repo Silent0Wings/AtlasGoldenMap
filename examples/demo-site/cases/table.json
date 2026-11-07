@@ -1,0 +1,9 @@
+{
+  "title": "Table",
+  "tests": "formatText: | pipe | tables |",
+  "tags": [
+    "block",
+    "table"
+  ],
+  "input": "| Product | Price | Stock |\n|---|---|---|\n| Desk | $320 | In stock |\n| Chair | $180 | *Low* stock |\n| Keyboard | $90 | `Sold out` |"
+}

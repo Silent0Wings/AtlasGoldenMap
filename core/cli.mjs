@@ -5,13 +5,17 @@
  *   node core/cli.mjs setup                 deps + scaffold atlas.config.ts if missing
  *   node core/cli.mjs deps                  npm install + Playwright Chromium
  *   node core/cli.mjs config [--force]      interactive atlas.config.ts generator
- *   node core/cli.mjs run [mode] [-- args]  atlas | capture | build | check | crawl | open | report | clean
+ *   node core/cli.mjs run [mode] [-- args]  atlas | capture | check | review | approve-new | approve-all
+ *                                           | build | crawl | open | report | clean [--goldens]
  *                                           (no mode: interactive menu; args after -- go to Playwright)
+ *
+ * Shots are captured into review/ and never become goldens on their own: a person approves them in
+ * the review UI (review), or in bulk with approve-new / approve-all.
  */
 import fs from 'fs';
 import path from 'path';
-import { spawnSync } from 'child_process';
-import { fileURLToPath } from 'url';
+import { spawn, spawnSync } from 'child_process';
+import { fileURLToPath, pathToFileURL } from 'url';
 import readline from 'readline/promises';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -38,6 +42,8 @@ function checkNode() {
   const major = Number(process.versions.node.split('.')[0]);
   if (major < 18) fail(`Node ${process.versions.node} is too old: install Node 18+ from https://nodejs.org`);
 }
+
+const store = () => import(pathToFileURL(path.join(ROOT, 'core', 'store.mjs')).href);
 
 function deps({ browser = true } = {}) {
   checkNode();
@@ -137,15 +143,21 @@ ${crawl ? `  crawl: { start: [${JSON.stringify(start)}], maxPages: 100 },\n` : '
 /* ---------------------------------------------------------------- run */
 
 const MODES = {
-  atlas: 'Capture + accept goldens + build + open',
-  capture: 'Capture + accept goldens only',
+  atlas: 'Capture (no golden writes) + build + open the dashboard',
+  capture: 'Capture into review/ and count new / changed shots',
+  check: 'Capture, then exit 1 unless every shot matches its golden',
+  review: 'Open the review UI to approve or deny shots (Ctrl+C stops)',
+  'approve-new': 'Approve every new shot as a golden (bootstrap)',
+  'approve-all': 'Approve every new or changed shot (asks first; --yes skips)',
   build: 'Rebuild dashboard.html from existing screenshots + open',
-  check: 'Compare the app against the goldens (report on drift)',
   crawl: 'Discover pages by following links (writes atlas.crawl.json)',
   open: 'Open the last built dashboard.html',
   report: 'Open the last Playwright report',
-  clean: 'Delete goldens, shots, reports and the dashboard',
+  clean: 'Delete review/, shots, reports and the dashboard (--goldens also deletes goldens)',
 };
+
+// modes that capture or build: they need Chromium and an atlas.config.ts
+const NEEDS_BROWSER = ['atlas', 'capture', 'check', 'build', 'crawl'];
 
 async function menu() {
   const keys = Object.keys(MODES);
@@ -163,38 +175,138 @@ function build(mode) {
   if (r) fail('dashboard build failed');
 }
 
-function capture() {
-  log('\n[*] Capturing every node in every variant (accepting new goldens)...');
+/* ---------------------------------------------------------------- capture lock */
+
+// review/.capture.lock holds {pid, startedAt} while a capture runs (from here or from the review server).
+// A lock whose pid is no longer alive is stale and gets overwritten.
+function lockHolder(file) {
+  let info;
+  try { info = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
+  const pid = Number(info?.pid);
+  if (!Number.isInteger(pid) || pid <= 0) return null;
+  try { process.kill(pid, 0); return info; }
+  catch (e) { return e.code === 'EPERM' ? info : null; }   // EPERM: alive, but owned by another user
+}
+
+// null when this process now holds the lock, otherwise the info of the live holder
+function takeLock(file, startedAt) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  for (let i = 0; i < 3; i++) {
+    const held = lockHolder(file);
+    if (held) return held;
+    try { fs.writeFileSync(file, JSON.stringify({ pid: process.pid, startedAt }) + '\n', { flag: 'wx' }); return null; }
+    catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+      if (!lockHolder(file)) fs.rmSync(file, { force: true });   // stale: clear it and try again
+    }
+  }
+  return lockHolder(file) ?? { pid: 'unknown', startedAt: '' };
+}
+
+function releaseLock(file) {
+  try { if (JSON.parse(fs.readFileSync(file, 'utf8')).pid === process.pid) fs.rmSync(file, { force: true }); } catch {}
+}
+
+// One Playwright run under the capture lock. Playwright exits non-zero when shots changed: that is the
+// review queue, not a crash. Returns what the run produced.
+async function runCapture() {
+  const s = await store();
+  const lock = path.join(s.ROOT, 'review', '.capture.lock');
+  const startedAt = new Date().toISOString();
+  const held = takeLock(lock, startedAt);
+  if (held) fail(`a capture is already running (pid ${held.pid}, started ${held.startedAt}). Wait for it to finish, or delete ${lock} if that process is gone.`);
+  process.on('exit', () => releaseLock(lock));
+  process.on('SIGINT', () => process.exit(130));
+  const start = Date.now();
   // fragments of removed nodes would linger in the atlas: start from a clean slate,
   // unless Playwright args (-g, --project…) limit the run to a subset
-  if (!passthrough.length) fs.rmSync(path.join(ROOT, 'shots', 'nodes'), { recursive: true, force: true });
-  const r = pw('test', '--update-snapshots', ...passthrough);
-  if (r) log('\n[!] Some nodes failed to capture (see above). The dashboard is still built from everything that succeeded.');
-  return r;
+  if (!passthrough.length) {
+    fs.rmSync(path.join(ROOT, 'shots', 'nodes'), { recursive: true, force: true });
+    s.cleanActual();
+  }
+  const pwFailed = pw('test', ...passthrough) !== 0;
+  // a subset run leaves the records of earlier runs in place: only count what this run captured
+  const records = s.listRecords().filter(r => !passthrough.length || Date.parse(r.capturedAt) >= start);
+  return { pwFailed, records };
+}
+
+async function capture() {
+  log('\n[*] Capturing every node in every variant (nothing becomes a golden until approved)...');
+  const { pwFailed, records } = await runCapture();
+  const count = s => records.filter(r => r.status === s).length;
+  log(`\n[OK] ${records.length} shots captured: ${count('new')} new, ${count('changed')} changed — run review`);
+  if (pwFailed) log('    (Some tests reported differences or failures: they are listed in the review queue.)');
+  return records;
+}
+
+// the records that are not match/volatile: the ones a person has to look at
+const isOpen = r => r.status !== 'match' && r.status !== 'volatile';
+
+function table(rows, headers) {
+  const widths = headers.map((h, i) => Math.max(h.length, ...rows.map(r => String(r[i]).length)));
+  const line = cells => cells.map((c, i) => String(c).padEnd(widths[i])).join('  ');
+  log(line(headers));
+  log(widths.map(w => '-'.repeat(w)).join('  '));
+  rows.forEach(r => log(line(r)));
 }
 
 async function run(mode) {
   if (!mode) mode = await menu();
   if (!mode) return;
   if (!MODES[mode]) fail(`Unknown mode "${mode}". Use: ${Object.keys(MODES).join(' | ')}`);
-  if (!['open', 'report', 'clean'].includes(mode)) {
+  if (NEEDS_BROWSER.includes(mode)) {
     deps();   // build needs Chromium too: it converts PNG -> WebP
     if (!fs.existsSync(CONFIG)) fail('No atlas.config.ts: run config first.');
+  } else if (!['open', 'report', 'clean'].includes(mode)) {
+    deps({ browser: false });   // review and approve import store.mjs (pixelmatch, pngjs)
   }
   const dash = path.join(ROOT, 'dashboard.html');
   switch (mode) {
-    case 'atlas': capture(); build(mode); openFile(dash); break;
-    case 'capture': process.exitCode = capture() ? 1 : 0; break;
+    case 'atlas': await capture(); build(mode); openFile(dash); break;
+    case 'capture': {
+      const records = await capture();
+      process.exitCode = records.length ? 0 : 1;
+      break;
+    }
     case 'build': build(mode); openFile(dash); break;
     case 'check': {
       log('\n[*] Comparing the app against the goldens (nothing is updated)...');
-      if (pw('test', ...passthrough)) {
-        log('\n[!] Visual differences or failures found. Opening the diff report...');
-        log('    If the change is intended, run "atlas" to accept it.');
-        const rep = path.join(ROOT, 'report', 'index.html');
-        if (fs.existsSync(rep)) openFile(rep);
+      const { pwFailed, records } = await runCapture();
+      const bad = records.filter(isOpen);
+      if (bad.length || pwFailed) {
+        log('');
+        table(bad.map(r => [r.key, r.status, (r.reasons ?? []).join(',') || '-', r.decision]), ['key', 'status', 'reasons', 'decision']);
+        log(`\n[!] ${bad.length} shot(s) differ from their goldens. Run "review" to look at them, then approve or deny.`);
         process.exitCode = 1;
-      } else log('\n[OK] No visual drift: every node matches its golden.');
+      } else log('\n[OK] No visual drift: every shot matches its golden.');
+      break;
+    }
+    case 'review': {
+      const child = spawn(process.execPath, [path.join(ROOT, 'core', 'review-server.mjs'), '--open', ...args.slice(1)], { cwd: ROOT, stdio: 'inherit' });
+      // Ctrl+C reaches the server too: keep waiting so it can stop its capture and exit cleanly
+      process.on('SIGINT', () => {});
+      process.exitCode = await new Promise(res => child.on('exit', code => res(code ?? 0)));
+      break;
+    }
+    case 'approve-new': {
+      const n = (await store()).approveWhere(r => r.status === 'new');
+      log(`[OK] Approved ${n} new shot(s) as goldens.`);
+      break;
+    }
+    case 'approve-all': {
+      const s = await store();
+      const open = s.listRecords().filter(isOpen);
+      if (!open.length) { log('[OK] Nothing to approve: every shot matches its golden.'); break; }
+      table(open.map(r => [r.key, r.status]), ['key', 'status']);
+      if (!args.includes('--yes')) {
+        if (!process.stdin.isTTY) fail('approve-all needs a terminal to confirm: pass --yes to run it non-interactively.');
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+        const a = (await rl.question(`\n  Approve ${open.length} shot(s) as the new goldens? Type "yes" to confirm: `)).trim();
+        rl.close();
+        if (a !== 'yes') { log('Aborted. Nothing was approved.'); break; }
+      }
+      const n = s.approveWhere(isOpen);
+      log(`[OK] Approved ${n} shot(s). Goldens are updated; commit goldens/ when they are intended.`);
       break;
     }
     case 'crawl': {
@@ -212,10 +324,12 @@ async function run(mode) {
       if (!fs.existsSync(rep)) fail('No report yet: run "check" or "atlas" first.');
       openFile(rep); break;
     }
-    case 'clean':
-      for (const d of ['goldens', 'shots', 'report', 'test-results', 'dashboard.html', 'atlas.crawl.json'])
-        fs.rmSync(path.join(ROOT, d), { recursive: true, force: true });
-      log('[OK] Cleaned.'); break;
+    case 'clean': {
+      const targets = ['review', 'shots', 'report', 'test-results', 'dashboard.html', 'atlas.crawl.json'];
+      if (args.includes('--goldens')) targets.push('goldens');   // approved goldens are the project's truth: explicit only
+      for (const d of targets) fs.rmSync(path.join(ROOT, d), { recursive: true, force: true });
+      log(`[OK] Cleaned${args.includes('--goldens') ? ' (goldens included)' : ' (goldens kept)'}.`); break;
+    }
   }
 }
 
@@ -231,7 +345,8 @@ switch (cmd) {
     break;
   case 'run': await run(args[0]); break;
   default:
-    log('Usage: node core/cli.mjs <setup | deps | config | run [mode]>');
+    log('Usage: node core/cli.mjs <setup | deps | config | run [mode] [--yes | --goldens] [-- playwright args]>');
     log(`Modes: ${Object.keys(MODES).join(' | ')}`);
+    for (const k of Object.keys(MODES)) log(`  ${k.padEnd(12)} ${MODES[k]}`);
     process.exitCode = cmd ? 1 : 0;
 }

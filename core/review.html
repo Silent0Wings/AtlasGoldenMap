@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golden Map Atlas · Review</title>
+<style>
+:root {
+  --bg: #f6f5f1; --panel: #ffffff; --panel-2: #f0eee8; --line: #dedbd2; --text: #1d1c1a; --muted: #6b6860;
+  --accent: #0f6b6b; --accent-soft: #d8ecea; --hit: #e8890c; --warn: #b4441c;
+  --st-new: #2563c9; --st-changed: #b86e00; --st-match: #2e7d4f; --st-volatile: #77736a; --on-st: #ffffff;
+  --ok: #2e7d4f; --bad: #b4321c;
+  --edge: #b9b5aa; --shadow: 0 1px 2px rgb(0 0 0 / .06), 0 4px 16px rgb(0 0 0 / .06);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121315; --panel: #1b1c1f; --panel-2: #232428; --line: #34363b; --text: #ecebe7; --muted: #9d9b95;
+    --accent: #5cc4bd; --accent-soft: #1f3b3a; --hit: #ffad3b; --warn: #ff8a65;
+    --st-new: #79a8f2; --st-changed: #f0a436; --st-match: #5fc38a; --st-volatile: #8e8b84; --on-st: #121315;
+    --ok: #5fc38a; --bad: #ff7b6b;
+    --edge: #4a4c52; --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 6px 20px rgb(0 0 0 / .35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121315; --panel: #1b1c1f; --panel-2: #232428; --line: #34363b; --text: #ecebe7; --muted: #9d9b95;
+  --accent: #5cc4bd; --accent-soft: #1f3b3a; --hit: #ffad3b; --warn: #ff8a65;
+  --st-new: #79a8f2; --st-changed: #f0a436; --st-match: #5fc38a; --st-volatile: #8e8b84; --on-st: #121315;
+  --ok: #5fc38a; --bad: #ff7b6b;
+  --edge: #4a4c52; --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 6px 20px rgb(0 0 0 / .35);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text); font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+button, input, select { font: inherit; color: inherit; }
+code { font: 12px ui-monospace, "Cascadia Code", Consolas, monospace; background: var(--panel-2); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+kbd { font: 11px ui-monospace, "Cascadia Code", Consolas, monospace; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; background: var(--bg); }
+[hidden] { display: none !important; }
+
+/* header */
+header { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+header h1 { font-size: 16px; margin: 0; letter-spacing: .01em; white-space: nowrap; }
+header h1 span { color: var(--muted); font-weight: 400; }
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.chip { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 10px; cursor: pointer; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.chip .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip.static { cursor: default; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot.st-new { background: var(--st-new); } .dot.st-changed { background: var(--st-changed); }
+.dot.st-match { background: var(--st-match); } .dot.st-volatile { background: var(--st-volatile); }
+.stats { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 auto; }
+.search { flex: 1 1 240px; position: relative; max-width: 420px; }
+.search input { width: 100%; padding: 7px 36px 7px 32px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); outline: none; }
+.search input:focus, .field:focus, .btn:focus-visible, .seg button:focus-visible, .chip:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); outline: none; }
+.search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; stroke: var(--muted); fill: none; }
+.search kbd { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); }
+.field { border: 1px solid var(--line); border-radius: 8px; background: var(--bg); padding: 6px 8px; outline: none; max-width: 100%; }
+.runbar { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.runbar .field { width: 170px; }
+.btn { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 13px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover:not(:disabled) { border-color: var(--muted); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+.btn.ok { color: var(--ok); border-color: var(--ok); }
+.btn.bad { color: var(--bad); border-color: var(--bad); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+.seg button { border: 0; background: var(--panel); padding: 5px 10px; cursor: pointer; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--panel); }
+.seg button[aria-pressed="true"] kbd { color: var(--panel); border-color: var(--panel); background: transparent; }
+
+/* layout */
+main { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px minmax(0, 1fr) 340px; grid-template-areas: "queue viewer details"; }
+nav#queue { grid-area: queue; min-height: 0; overflow: auto; background: var(--panel); border-right: 1px solid var(--line); }
+#viewer { grid-area: viewer; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+aside#details { grid-area: details; min-height: 0; overflow: auto; background: var(--panel); border-left: 1px solid var(--line); padding: 14px 16px; }
+
+/* queue */
+.qhead { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.qhead .count { color: var(--muted); font-size: 12px; }
+.list { list-style: none; margin: 0; padding: 6px; }
+.list li { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px; padding: 6px; border-radius: 8px; cursor: pointer; align-items: center; border: 1px solid transparent; }
+.list li:hover { background: var(--panel-2); }
+.list li[aria-selected="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.list li.empty { display: block; cursor: default; color: var(--muted); }
+.list li.empty:hover { background: none; }
+.list img { width: 72px; height: 48px; object-fit: cover; object-position: top; border-radius: 4px; border: 1px solid var(--line); background: var(--panel-2); display: block; }
+.list .t { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list .s { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list .qp { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+
+/* pills */
+.pill { display: inline-block; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; padding: 1px 6px; border-radius: 4px; border: 1px solid transparent; line-height: 16px; white-space: nowrap; vertical-align: 1px; }
+.st-new { background: var(--st-new); color: var(--on-st); }
+.st-changed { background: var(--st-changed); color: var(--on-st); }
+.st-match { background: var(--st-match); color: var(--on-st); }
+.st-volatile { background: var(--st-volatile); color: var(--on-st); }
+.dec-pending { background: transparent; color: var(--muted); border: 1px dashed var(--line); }
+.dec-approved { background: transparent; color: var(--ok); border-color: var(--ok); }
+.dec-denied { background: transparent; color: var(--bad); border-color: var(--bad); }
+
+/* viewer */
+.vbar { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.vbar .opacity { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.vbar .opacity input { width: 120px; accent-color: var(--accent); }
+.vbar .vtitle { margin-left: auto; font-size: 12px; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stage { flex: 1; min-height: 0; overflow: auto; padding: 14px; }
+.stage > .empty { padding: 40px 0; text-align: center; }
+.sbs { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; align-items: start; }
+figure { margin: 0; min-width: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel-2); }
+figure figcaption { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 5px 8px; background: var(--panel); border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; }
+figure img { display: block; max-width: 100%; height: auto; }
+figure.solo { max-width: 100%; }
+.nogold { padding: 36px 12px; text-align: center; color: var(--muted); font-size: 13px; background: repeating-linear-gradient(45deg, var(--panel-2) 0 8px, var(--panel) 8px 16px); }
+.nogold p { margin: 0; }
+.note { font-size: 12px; color: var(--warn); margin: 0 0 8px; }
+.zoom100 figure img, .zoom100 .cmp .base { max-width: none; }
+.zoom100 .sbs { display: flex; flex-wrap: wrap; align-items: flex-start; }
+.zoom100 figure { flex: 0 0 auto; }
+
+.cmp { position: relative; display: inline-block; max-width: 100%; line-height: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel-2); user-select: none; -webkit-user-select: none; touch-action: none; }
+.cmp.slider { cursor: ew-resize; }
+.cmp .base { display: block; max-width: 100%; height: auto; }
+.cmp .top { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: contain; object-position: left top; pointer-events: none; }
+.cmp.slider .top { clip-path: inset(0 calc(100% - var(--split)) 0 0); }
+.cmp.overlay .top { opacity: var(--op, .5); }
+.cmp .handle { position: absolute; top: 0; bottom: 0; left: var(--split); width: 2px; margin-left: -1px; background: var(--hit); pointer-events: none; box-shadow: 0 0 0 1px rgb(0 0 0 / .25); }
+.cmp .handle::after { content: ""; position: absolute; top: 50%; left: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: var(--hit); border: 2px solid var(--panel); }
+
+/* details */
+.dhead h2 { font-size: 16px; margin: 2px 0 6px; overflow-wrap: anywhere; }
+.crumbs { font-size: 12px; color: var(--muted); }
+.pills { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.hint { font-size: 12px; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 6px 8px; margin: 10px 0 0; }
+.chips-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.chips-row .chip { font-size: 11px; padding: 2px 8px; }
+dl.meta { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 5px 10px; margin: 12px 0 0; font-size: 12px; }
+dl.meta dt { color: var(--muted); }
+dl.meta dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.tag { font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; }
+aside h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 16px 0 6px; }
+.note-text { font-size: 13px; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 18px; }
+.actions .btn { justify-content: center; padding: 9px 12px; }
+.nav2 { display: flex; gap: 8px; margin-top: 8px; }
+.nav2 .btn { flex: 1; justify-content: center; font-size: 12px; }
+.pos { font-size: 12px; color: var(--muted); margin: 12px 0 0; }
+.empty { color: var(--muted); }
+
+/* log + toast */
+.logbox { flex-shrink: 0; background: var(--panel); border-top: 1px solid var(--line); }
+.logbox summary { cursor: pointer; padding: 6px 16px; font-size: 12px; color: var(--muted); user-select: none; }
+.logbox pre { margin: 0; padding: 8px 16px 12px; max-height: 28vh; overflow: auto; font: 12px/1.4 ui-monospace, "Cascadia Code", Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); }
+#toast { position: fixed; right: 16px; top: 12px; z-index: 60; max-width: min(440px, calc(100vw - 32px)); background: var(--panel); color: var(--text); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; padding: 9px 12px; box-shadow: var(--shadow); font-size: 13px; opacity: 0; transform: translateY(-6px); transition: opacity .15s, transform .15s; pointer-events: none; }
+#toast.show { opacity: 1; transform: none; }
+
+/* narrow: stack the panels */
+@media (max-width: 1199px) {
+  body { height: auto; min-height: 100vh; overflow: auto; }
+  main { grid-template-columns: 280px minmax(0, 1fr); grid-template-areas: "queue viewer" "queue details"; align-items: start; }
+  nav#queue { position: sticky; top: 0; max-height: 100vh; align-self: start; }
+  aside#details { overflow: visible; border-left: 0; border-top: 1px solid var(--line); }
+  .stage { overflow: visible; }
+}
+@media (max-width: 899px) {
+  header { padding: 10px 12px; }
+  .stats { display: none; }
+  .runbar { margin-left: 0; width: 100%; }
+  .runbar .field { flex: 1 1 auto; width: auto; }
+  main { grid-template-columns: minmax(0, 1fr); grid-template-areas: "queue" "viewer" "details"; }
+  nav#queue { position: static; max-height: 40vh; border-right: 0; border-bottom: 1px solid var(--line); }
+  aside#details { border-left: 0; border-top: 1px solid var(--line); }
+  .vbar .vtitle { display: none; }
+  .stage { padding: 10px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Golden Map Atlas <span>· Review</span></h1>
+  <div class="chips" id="statusChips" role="group" aria-label="Status filter"></div>
+  <div class="stats" id="stats"></div>
+  <div class="bar">
+    <label class="search">
+      <svg viewBox="0 0 24 24" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Search key, label, tag…" autocomplete="off" aria-label="Search records">
+      <kbd>/</kbd>
+    </label>
+    <select id="fDecision" class="field" aria-label="Decision filter">
+      <option value="">All decisions</option>
+      <option value="pending">Pending</option>
+      <option value="denied">Denied</option>
+      <option value="approved">Approved</option>
+    </select>
+    <select id="fVariant" class="field" aria-label="Variant filter"></select>
+    <select id="fKind" class="field" aria-label="Kind filter"></select>
+    <select id="fGroup" class="field" aria-label="Group filter"></select>
+  </div>
+  <div class="runbar">
+    <input id="grep" class="field" placeholder="grep (optional)" aria-label="Capture grep" autocomplete="off">
+    <button id="run" class="btn primary">Run capture</button>
+  </div>
+</header>
+
+<main>
+  <nav id="queue" aria-label="Records">
+    <div class="qhead">
+      <span class="count" id="qcount"></span>
+      <button class="btn" id="approveNew">Approve all visible new</button>
+    </div>
+    <ul class="list" id="list" role="listbox" aria-label="Records"></ul>
+  </nav>
+
+  <section id="viewer" aria-label="Viewer">
+    <div class="vbar">
+      <div class="seg" role="group" aria-label="View mode" id="modes">
+        <button data-mode="side">Side-by-side <kbd>1</kbd></button>
+        <button data-mode="slider">Slider <kbd>2</kbd></button>
+        <button data-mode="overlay">Overlay <kbd>3</kbd></button>
+        <button data-mode="diff">Diff <kbd>4</kbd></button>
+      </div>
+      <div class="seg" role="group" aria-label="Zoom">
+        <button data-zoomlvl="fit">Fit</button>
+        <button data-zoomlvl="100">100%</button>
+      </div>
+      <label class="opacity" id="opWrap" hidden>Opacity <input id="opacity" type="range" min="0" max="1" step="0.01" value="0.5" aria-label="Overlay opacity"></label>
+      <div class="vtitle" id="vtitle"></div>
+    </div>
+    <div class="stage" id="stage"></div>
+  </section>
+
+  <aside id="details" aria-label="Details"></aside>
+</main>
+
+<details class="logbox" id="logbox" hidden>
+  <summary id="logSummary">Capture log</summary>
+  <pre id="log"></pre>
+</details>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const STATUSES = ['changed', 'new', 'match', 'volatile'];
+const STATUS_RANK = { changed: 0, new: 1, match: 2, volatile: 3 };
+const MODES = ['side', 'slider', 'overlay', 'diff'];
+
+const S = {
+  loaded: false, records: [], byKey: new Map(), meta: {}, selected: null,
+  status: new Set(['new', 'changed']), decision: '', variant: '', kind: '', group: '', q: '',
+  mode: 'side', zoom: 'fit', opacity: 0.5, split: 50,
+  running: false, polling: false, pollT: 0, runLog: '', busy: false,
+};
+
+/* ---------- helpers ---------- */
+const cur = () => S.byKey.get(S.selected) ?? null;
+// t is the cache-buster: an approved golden changes on approve (decidedAt), actual and diff change on capture
+const fileUrl = (p, r, t = r.capturedAt) => `/file?p=${encodeURIComponent(p)}&t=${encodeURIComponent(t ?? '')}`;
+const sameSize = r => r.approvedWidth != null && r.approvedWidth === r.width && r.approvedHeight === r.height;
+const short = h => (h ? String(h).slice(0, 12) : '—');
+const fmtDate = s => { if (!s) return '—'; const t = Date.parse(s); return Number.isNaN(t) ? String(s) : new Date(t).toLocaleString(); };
+const label = r => r.label || r.key;
+const searchText = r => [r.key, r.label, r.id, r.nodeId, r.group, r.kind, r.status, r.decision, ...(r.tags ?? [])].join(' ').toLowerCase();
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+function readHashKey() {
+  const m = location.hash.match(/(?:^#|&)key=([^&]+)/);
+  if (!m) return null;
+  try { return decodeURIComponent(m[1]); } catch { return m[1]; }
+}
+function syncHash() {
+  const want = S.selected ? '#key=' + encodeURIComponent(S.selected).replace(/%2F/g, '/') : '';
+  if (location.hash !== want) history.replaceState(null, '', want || (location.pathname + location.search));
+}
+
+let toastT = 0;
+function toast(msg, ms = 5000) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+async function api(path, opts = {}) {
+  const init = { cache: 'no-store', ...opts };
+  if (opts.body !== undefined) init.headers = { 'content-type': 'application/json' };
+  const res = await fetch(path, init);
+  let data = null;
+  try { data = await res.json(); } catch {}
+  if (!res.ok) {
+    const err = new Error(data?.error || `${res.status} ${res.statusText}`);
+    err.status = res.status;
+    err.records = data?.records;   // a 500 from a bulk decision carries the records it already changed
+    throw err;
+  }
+  return data ?? {};
+}
+
+function visibleList() {
+  const q = S.q.trim().toLowerCase();
+  return S.records
+    .filter(r => (!S.status.size || S.status.has(r.status))
+      && (!S.decision || r.decision === S.decision)
+      && (!S.variant || r.variant === S.variant)
+      && (!S.kind || r.kind === S.kind)
+      && (!S.group || r.group === S.group)
+      && (!q || searchText(r).includes(q)))
+    .sort((a, b) => (STATUS_RANK[a.status] ?? 9) - (STATUS_RANK[b.status] ?? 9) || a.key.localeCompare(b.key));
+}
+
+function pickNext(list, key) {
+  const i = list.findIndex(r => r.key === key);
+  const order = [...list.slice(i + 1), ...list.slice(0, Math.max(i, 0))];
+  return order.find(r => r.decision === 'pending' && r.key !== key)?.key ?? null;
+}
+
+function diffWhy(r) {
+  if (r.diff) return '';
+  if (!r.approved) return 'No golden yet, so there is nothing to diff against.';
+  if (!sameSize(r)) return `Size differs (golden ${r.approvedWidth}×${r.approvedHeight}, actual ${r.width}×${r.height}), so there is no pixel diff.`;
+  return 'No diff image was written for this pair.';
+}
+
+function mergeRecords(list) {
+  if (!Array.isArray(list)) return;
+  for (const r of list) if (r && r.key) S.byKey.set(r.key, r);
+  S.records = [...S.byKey.values()];
+}
+
+/* ---------- rendering ---------- */
+function renderAll() {
+  renderHeader();
+  renderQueue();
+  renderViewer();
+  renderDetails();
+  renderRun();
+  syncHash();
+}
+
+function fillSelect(id, values, allLabel, current) {
+  const el = $(id);
+  const sig = values.join('\u0001');
+  if (el.dataset.sig !== sig) {
+    el.dataset.sig = sig;
+    el.innerHTML = `<option value="">${esc(allLabel)}</option>` + values.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  }
+  el.value = values.includes(current) ? current : '';
+  return el.value;
+}
+
+function renderHeader() {
+  const counts = Object.fromEntries(STATUSES.map(s => [s, 0]));
+  for (const r of S.records) if (r.status in counts) counts[r.status]++;
+  $('statusChips').innerHTML = STATUSES.map(s =>
+    `<button class="chip" data-status="${s}" aria-pressed="${S.status.has(s)}"><span class="dot st-${s}"></span>${s} <span class="n">${counts[s]}</span></button>`).join('');
+
+  const variants = [...new Set(S.records.map(r => r.variant).filter(Boolean))].sort();
+  const kinds = [...new Set(S.records.map(r => r.kind).filter(Boolean))].sort();
+  const groups = [...new Set(S.records.map(r => r.group).filter(Boolean))].sort();
+  S.variant = fillSelect('fVariant', variants, 'All variants', S.variant);
+  S.kind = fillSelect('fKind', kinds, 'All kinds', S.kind);
+  S.group = fillSelect('fGroup', groups, 'All groups', S.group);
+  $('fGroup').hidden = !groups.length;
+  $('fDecision').value = S.decision;
+
+  const vis = visibleList().length;
+  const last = S.records.reduce((m, r) => Math.max(m, Date.parse(r.capturedAt) || 0), 0);
+  $('stats').textContent = S.records.length
+    ? `${vis} of ${plural(S.records.length, 'record')} shown${last ? ` · last capture ${new Date(last).toLocaleString()}` : ''}`
+    : '';
+}
+
+function renderQueue() {
+  const list = visibleList();
+  $('qcount').textContent = S.records.length ? `${list.length} of ${S.records.length} shown` : '';
+  const empty = !S.loaded ? 'Loading…'
+    : !S.records.length ? 'No records yet. Run a capture to create some.'
+    : 'No records match the filters.';
+  $('list').innerHTML = list.length ? list.map(r => `
+    <li role="option" data-key="${esc(r.key)}" aria-selected="${r.key === S.selected}">
+      <img src="${fileUrl(r.actual, r)}" alt="" loading="lazy">
+      <div style="min-width:0">
+        <div class="t">${esc(label(r))}</div>
+        <div class="s"><code>${esc(r.key)}</code></div>
+        <div class="qp"><span class="pill st-${esc(r.status)}">${esc(r.status)}</span><span class="pill dec-${esc(r.decision)}">${esc(r.decision)}</span></div>
+      </div>
+    </li>`).join('') : `<li class="empty">${esc(empty)}</li>`;
+  const selEl = $('list').querySelector('[aria-selected="true"]');
+  if (selEl) selEl.scrollIntoView({ block: 'nearest' });
+  $('approveNew').disabled = S.busy || !list.some(r => r.status === 'new' && r.decision !== 'approved');
+}
+
+function renderControls() {
+  for (const b of $('modes').children) b.setAttribute('aria-pressed', String(b.dataset.mode === S.mode));
+  for (const b of document.querySelectorAll('[data-zoomlvl]')) b.setAttribute('aria-pressed', String(b.dataset.zoomlvl === S.zoom));
+  $('opWrap').hidden = S.mode !== 'overlay';
+  $('opacity').value = S.opacity;
+}
+
+function renderViewer() {
+  renderControls();
+  const stage = $('stage');
+  stage.classList.toggle('zoom100', S.zoom === '100');
+  const r = cur();
+  $('vtitle').textContent = r ? `${r.key} · ${r.variant} · ${r.width}×${r.height}` : '';
+  if (!r) {
+    stage.innerHTML = `<p class="empty">${S.loaded && S.records.length ? 'Select a record in the queue (j / k).' : ''}</p>`;
+    return;
+  }
+  const A = fileUrl(r.actual, r);
+  const G = r.approved ? fileUrl(r.approved, r, r.decidedAt ?? r.capturedAt) : '';
+  const D = r.diff ? fileUrl(r.diff, r) : '';
+  const noGold = '<div class="nogold"><p>No golden yet</p></div>';
+  const noDiff = `<div class="nogold"><p>${esc(diffWhy(r))}</p></div>`;
+  let html;
+
+  if (S.mode === 'side') {
+    html = `<div class="sbs">
+      <figure><figcaption><span>Approved</span><span>${r.approvedWidth != null ? `${r.approvedWidth}×${r.approvedHeight}` : ''}</span></figcaption>${G ? `<img src="${G}" alt="Approved golden">` : noGold}</figure>
+      <figure><figcaption><span>Actual</span><span>${r.width}×${r.height}</span></figcaption><img src="${A}" alt="Actual capture"></figure>
+      <figure><figcaption><span>Diff</span><span>${r.diffRatio != null ? `${(r.diffRatio * 100).toFixed(3)}%` : ''}</span></figcaption>${D ? `<img src="${D}" alt="Pixel diff">` : noDiff}</figure>
+    </div>`;
+  } else if (S.mode === 'diff') {
+    html = D
+      ? `<figure class="solo"><figcaption><span>Diff</span><span>${(r.diffRatio * 100).toFixed(3)}%</span></figcaption><img src="${D}" alt="Pixel diff"></figure>`
+      : noDiff;
+  } else if (!G) {
+    html = `${noGold}<figure class="solo" style="margin-top:12px"><figcaption><span>Actual</span><span>${r.width}×${r.height}</span></figcaption><img src="${A}" alt="Actual capture"></figure>`;
+  } else {
+    const note = sameSize(r) ? '' : `<p class="note">Sizes differ (golden ${r.approvedWidth}×${r.approvedHeight}, actual ${r.width}×${r.height}); aligned top-left.</p>`;
+    html = `${note}<div class="cmp ${S.mode}" id="cmp" style="--split:${S.split}%;--op:${S.opacity}">
+      <img class="base" src="${G}" alt="Approved golden">
+      <img class="top" src="${A}" alt="Actual capture">
+      ${S.mode === 'slider' ? '<div class="handle"></div>' : ''}
+    </div>`;
+  }
+  stage.innerHTML = html;
+
+  const cmp = $('cmp');
+  if (cmp && S.mode === 'slider') {
+    let drag = false;
+    const setFrom = e => {
+      const b = cmp.getBoundingClientRect();
+      const pct = Math.min(100, Math.max(0, (e.clientX - b.left) / b.width * 100));
+      S.split = Math.round(pct * 10) / 10;
+      cmp.style.setProperty('--split', S.split + '%');
+    };
+    cmp.addEventListener('pointerdown', e => { drag = true; cmp.setPointerCapture(e.pointerId); setFrom(e); e.preventDefault(); });
+    cmp.addEventListener('pointermove', e => { if (drag) setFrom(e); });
+    const end = () => { drag = false; };
+    cmp.addEventListener('pointerup', end);
+    cmp.addEventListener('pointercancel', end);
+  }
+}
+
+function renderDetails() {
+  const el = $('details');
+  const r = cur();
+  if (!r) {
+    el.innerHTML = `<p class="empty">${S.loaded && S.records.length ? 'Nothing selected. Pick a record in the queue.' : ''}</p>`;
+    return;
+  }
+  const list = visibleList();
+  const pos = list.findIndex(x => x.key === r.key);
+  const reasons = r.reasons ?? [];
+  const tags = r.tags ?? [];
+  const sizeG = r.approvedWidth == null ? '—' : `${r.approvedWidth}×${r.approvedHeight}`;
+  const pct = r.diffRatio == null ? '—' : `${(r.diffRatio * 100).toFixed(3)}%`;
+  const px = r.diffPixels == null ? '' : ` (${Number(r.diffPixels).toLocaleString()} px)`;
+  const htmlState = r.approvedHtmlHash == null ? 'no golden' : r.htmlIdentical ? 'identical' : 'differs';
+  const cfgState = r.approvedConfigHash == null ? 'no golden' : r.configHash === r.approvedConfigHash ? 'identical' : 'differs';
+
+  el.innerHTML = `
+    <div class="dhead">
+      <div class="crumbs">${esc(r.variant)} · ${esc(r.kind)}${r.group ? ` · ${esc(r.group)}` : ''}</div>
+      <h2>${esc(label(r))}</h2>
+      <div class="pills"><span class="pill st-${esc(r.status)}">${esc(r.status)}</span><span class="pill dec-${esc(r.decision)}">${esc(r.decision)}</span></div>
+    </div>
+    ${r.status === 'changed' && r.htmlIdentical && (r.reasons ?? []).some(x => x === 'pixels' || x === 'size') ? '<p class="hint">HTML identical → change came from CSS, not markup</p>' : ''}
+    ${reasons.length ? `<div class="chips-row">${reasons.map(x => `<span class="chip static">${esc(x)}</span>`).join('')}</div>` : ''}
+    <dl class="meta">
+      <dt>key</dt><dd><code>${esc(r.key)}</code></dd>
+      <dt>id</dt><dd><code>${esc(r.id)}</code></dd>
+      <dt>node</dt><dd><code>${esc(r.nodeId)}</code></dd>
+      <dt>kind</dt><dd>${esc(r.kind)}</dd>
+      <dt>tags</dt><dd>${tags.length ? tags.map(t => `<span class="tag">${esc(t)}</span>`).join(' ') : '—'}</dd>
+      <dt>volatile</dt><dd>${r.volatile ? 'yes (captured, never compared)' : 'no'}</dd>
+      <dt>size</dt><dd>actual ${r.width}×${r.height} · golden ${sizeG}</dd>
+      <dt>diff</dt><dd>${pct}${px}</dd>
+      <dt>html</dt><dd>${htmlState} <code>${short(r.htmlHash)}</code></dd>
+      <dt>config</dt><dd>${cfgState} <code>${short(r.configHash)}</code></dd>
+      <dt>captured</dt><dd>${fmtDate(r.capturedAt)}</dd>
+      ${r.decidedAt ? `<dt>decided</dt><dd>${fmtDate(r.decidedAt)}</dd>` : ''}
+    </dl>
+    ${r.note ? `<h3>Note</h3><p class="note-text">${esc(r.note)}</p>` : ''}
+    <div class="actions">
+      <button class="btn ok" data-act="approve" ${S.busy ? 'disabled' : ''}>Approve <kbd>a</kbd></button>
+      <button class="btn bad" data-act="deny" ${S.busy ? 'disabled' : ''}>Deny <kbd>d</kbd></button>
+    </div>
+    <div class="nav2">
+      <button class="btn" data-act="prev" ${list.length < 2 ? 'disabled' : ''}>← Prev <kbd>k</kbd></button>
+      <button class="btn" data-act="next" ${list.length < 2 ? 'disabled' : ''}>Next <kbd>j</kbd></button>
+    </div>
+    <p class="pos">${pos >= 0 ? `${pos + 1} of ${plural(list.length, 'record')} in the queue` : 'Not in the current filter'}</p>`;
+}
+
+function renderRun() {
+  const b = $('run');
+  b.disabled = S.running;
+  b.textContent = S.running ? 'Running…' : 'Run capture';
+  $('logbox').hidden = !S.running && !S.runLog;
+}
+
+function renderLog(r) {
+  S.runLog = Array.isArray(r.log) ? r.log.join('\n') : String(r.log ?? '');
+  const pre = $('log');
+  const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 24;
+  pre.textContent = S.runLog || '(no output yet)';
+  if (atBottom) pre.scrollTop = pre.scrollHeight;
+  $('logSummary').textContent = r.running
+    ? 'Capture log · running…'
+    : `Capture log · finished${r.exitCode == null ? '' : ` · exit ${r.exitCode}`}`;
+  renderRun();
+}
+
+/* ---------- selection ---------- */
+function select(key) {
+  S.selected = key;
+  renderAll();
+}
+function move(delta) {
+  const list = visibleList();
+  if (!list.length) return;
+  const i = list.findIndex(r => r.key === S.selected);
+  const n = i < 0 ? (delta > 0 ? 0 : list.length - 1) : Math.min(list.length - 1, Math.max(0, i + delta));
+  select(list[n].key);
+}
+function setMode(m) {
+  S.mode = m;
+  renderViewer();
+}
+
+/* ---------- decisions ---------- */
+async function applyDecision(path, keys, note) {
+  S.busy = true;
+  renderDetails();
+  try {
+    const body = { keys };
+    if (note) body.note = note;
+    const res = await api(path, { method: 'POST', body: JSON.stringify(body) });
+    mergeRecords(res.records);
+    return true;
+  } catch (e) {
+    mergeRecords(e.records);
+    toast(e.message);
+    return false;
+  } finally {
+    S.busy = false;
+  }
+}
+
+async function decideCurrent(kind) {
+  const r = cur();
+  if (!r || S.busy) return;
+  let note = '';
+  if (kind === 'deny') {
+    const answer = prompt(`Deny ${r.key}?\nA short reason is required. It is stored with the denial and applies while this image stays the same.`, r.note || '');
+    note = (answer ?? '').trim();
+    if (!note) { toast('Deny needs a note, so nothing was denied.'); return; }
+  }
+  const next = pickNext(visibleList(), r.key);
+  const ok = await applyDecision(kind === 'approve' ? '/api/approve' : '/api/deny', [r.key], note);
+  if (ok && next) S.selected = next;
+  renderAll();
+}
+
+async function approveVisibleNew() {
+  const keys = visibleList().filter(r => r.status === 'new' && r.decision !== 'approved').map(r => r.key);
+  if (!keys.length) { toast('No visible new records to approve.'); return; }
+  if (!confirm(`Approve ${plural(keys.length, 'new record')} as golden?\n\nTheir current screenshots are copied into goldens/.`)) return;
+  await applyDecision('/api/approve', keys, '');
+  renderAll();
+}
+
+/* ---------- records + capture run ---------- */
+async function loadRecords() {
+  const data = await api('/api/records');
+  S.loaded = true;
+  S.records = Array.isArray(data.records) ? data.records : [];
+  S.byKey = new Map(S.records.map(r => [r.key, r]));
+  S.meta = data.meta ?? {};
+  S.running = !!data.running;
+  if (!S.byKey.has(S.selected)) S.selected = visibleList()[0]?.key ?? null;
+  renderAll();
+  if (S.running) startPolling();
+}
+
+async function startRun() {
+  if (S.running) return;
+  const grep = $('grep').value.trim();
+  try {
+    await api('/api/run', { method: 'POST', body: JSON.stringify(grep ? { grep } : {}) });
+  } catch (e) {
+    if (e.status !== 409) { toast(e.message); return; }   // 409: a run is already going; just follow it
+  }
+  S.running = true;
+  S.runLog = '';
+  $('logbox').open = true;
+  renderRun();
+  startPolling();
+}
+
+function startPolling() {
+  if (S.polling) return;
+  S.polling = true;
+  const tick = async () => {
+    let r;
+    try {
+      r = await api('/api/run');
+    } catch (e) {
+      toast(e.message);
+      S.pollT = setTimeout(tick, 2000);
+      return;
+    }
+    S.running = !!r.running;
+    renderLog(r);
+    if (S.running) { S.pollT = setTimeout(tick, 1000); return; }
+    S.polling = false;
+    renderRun();
+    try {
+      await loadRecords();
+      toast(r.exitCode === 0 || r.exitCode == null ? 'Capture finished. Records reloaded.' : `Capture finished with exit ${r.exitCode}. Records reloaded.`);
+    } catch (e) {
+      toast(e.message);
+    }
+  };
+  tick();
+}
+
+/* ---------- events ---------- */
+$('statusChips').addEventListener('click', e => {
+  const b = e.target.closest('[data-status]');
+  if (!b) return;
+  const s = b.dataset.status;
+  if (S.status.has(s)) S.status.delete(s); else S.status.add(s);
+  if (!S.status.size) S.status = new Set(STATUSES);   // no status picked means all of them
+  renderAll();
+});
+$('q').addEventListener('input', e => { S.q = e.target.value; renderAll(); });
+$('fDecision').addEventListener('change', e => { S.decision = e.target.value; renderAll(); });
+$('fVariant').addEventListener('change', e => { S.variant = e.target.value; renderAll(); });
+$('fKind').addEventListener('change', e => { S.kind = e.target.value; renderAll(); });
+$('fGroup').addEventListener('change', e => { S.group = e.target.value; renderAll(); });
+$('list').addEventListener('click', e => {
+  const li = e.target.closest('li[data-key]');
+  if (li) select(li.dataset.key);
+});
+$('modes').addEventListener('click', e => {
+  const b = e.target.closest('[data-mode]');
+  if (b) setMode(b.dataset.mode);
+});
+document.querySelector('.vbar').addEventListener('click', e => {
+  const b = e.target.closest('[data-zoomlvl]');
+  if (!b) return;
+  S.zoom = b.dataset.zoomlvl;
+  renderViewer();
+});
+$('opacity').addEventListener('input', e => {
+  S.opacity = Number(e.target.value);
+  document.getElementById('cmp')?.style.setProperty('--op', S.opacity);
+});
+$('details').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (!b || b.disabled) return;
+  const act = b.dataset.act;
+  if (act === 'approve') decideCurrent('approve');
+  else if (act === 'deny') decideCurrent('deny');
+  else move(act === 'next' ? 1 : -1);
+});
+$('approveNew').addEventListener('click', approveVisibleNew);
+$('run').addEventListener('click', startRun);
+$('grep').addEventListener('keydown', e => { if (e.key === 'Enter') startRun(); });
+window.addEventListener('hashchange', () => {
+  const k = readHashKey();
+  if (k && k !== S.selected && S.byKey.has(k)) select(k);
+});
+
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target;
+  if (t instanceof Element && t.closest('input, textarea, select, [contenteditable="true"]')) {
+    if (e.key === 'Escape' && t.id === 'q') { t.value = ''; S.q = ''; t.blur(); renderAll(); }
+    return;
+  }
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  switch (k) {
+    case 'j': move(1); break;
+    case 'k': move(-1); break;
+    case 'a': decideCurrent('approve'); break;
+    case 'd': decideCurrent('deny'); break;
+    case '/': e.preventDefault(); $('q').focus(); $('q').select(); break;
+    case '1': case '2': case '3': case '4': setMode(MODES[Number(k) - 1]); break;
+    default: break;
+  }
+});
+
+/* ---------- boot ---------- */
+S.selected = readHashKey();
+renderAll();
+loadRecords().catch(e => {
+  S.loaded = true;
+  renderAll();
+  $('list').innerHTML = `<li class="empty">${esc(e.message)}</li>`;
+  toast(e.message);
+});
+})();
+</script>
+</body>
+</html>

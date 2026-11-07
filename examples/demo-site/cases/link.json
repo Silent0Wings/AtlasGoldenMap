@@ -1,0 +1,9 @@
+{
+  "title": "Links",
+  "tests": "formatText: [text](url)",
+  "tags": [
+    "inline",
+    "link"
+  ],
+  "input": "See the [project home](https://example.com/home), the [about page](about.html), or [the settings](/settings.html)."
+}

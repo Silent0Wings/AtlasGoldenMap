@@ -9,13 +9,17 @@ import { fileURLToPath } from 'url';
 import type { Page } from '@playwright/test';
 export type { Page };
 
-export const ATLAS_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+/** Same root rule as core/store.mjs, so shots/ and review/ always share one root. */
+export const ATLAS_ROOT = process.env.ATLAS_ROOT
+  ? path.resolve(process.env.ATLAS_ROOT)
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /* ---------------------------------------------------------------- types */
 
 /** Built-in kinds get their own colour in the viewer; any other string is allowed too. */
 export type Kind = 'page' | 'state' | 'item' | 'component' | (string & {});
-export type Step = (page: Page) => Promise<void>;
+/** `src` is a readable tag of the helper call (e.g. `click("#a")`), so config hashes see its arguments. */
+export type Step = ((page: Page) => Promise<void>) & { src?: string };
 
 export type Component = { name: string; label: string; selector: string };
 
@@ -62,6 +66,8 @@ export type UINode = {
   collection?: Collection;
   /** Per-node test timeout in ms. */
   timeout?: number;
+  /** Extra text mixed into the config hash, e.g. a case file's contents. */
+  hashInput?: string;
 };
 
 export type Variant = {
@@ -141,30 +147,40 @@ export type AtlasConfig = {
   workers?: number;
   timeout?: number;
   actionTimeout?: number;
-  maxDiffPixelRatio?: number;
+  /** Visual review: diff thresholds, review server port, and whether markup is hashed (default true). */
+  review?: {
+    threshold?: number; pixelThreshold?: number; port?: number; htmlHash?: boolean;
+    /** Attributes removed from every element before the markup hash, e.g. per-run `data-*` ids (default []). `nonce` is always removed. */
+    ignoreAttributes?: string[];
+  };
 };
 
 export const defineAtlas = (c: AtlasConfig) => c;
 
 /* ---------------------------------------------------------------- step helpers */
 
-export const click = (sel: string): Step => async p => { await p.locator(sel).first().click(); };
-export const hover = (sel: string): Step => async p => { await p.locator(sel).first().hover(); };
-export const fill = (sel: string, value: string): Step => async p => { await p.locator(sel).first().fill(value); };
-export const press = (key: string, sel?: string): Step => async p => {
+/** Attach a readable source tag: functions alone stringify identically whatever their arguments are. */
+const tag = (fn: (page: Page) => Promise<void>, src: string): Step => Object.assign(fn, { src });
+const q = JSON.stringify;
+
+export const click = (sel: string): Step => tag(async p => { await p.locator(sel).first().click(); }, `click(${q(sel)})`);
+export const hover = (sel: string): Step => tag(async p => { await p.locator(sel).first().hover(); }, `hover(${q(sel)})`);
+export const fill = (sel: string, value: string): Step => tag(async p => { await p.locator(sel).first().fill(value); }, `fill(${q(sel)}, ${q(value)})`);
+export const press = (key: string, sel?: string): Step => tag(async p => {
   if (sel) await p.locator(sel).first().press(key); else await p.keyboard.press(key);
-};
-export const check = (sel: string, on = true): Step => async p => { await p.locator(sel).first().setChecked(on, { force: true }); };
-export const select = (sel: string, value: string): Step => async p => { await p.locator(sel).first().selectOption(value); };
-export const wait = (sel: string): Step => async p => { await p.locator(sel).first().waitFor(); };
+}, `press(${q(key)}${sel ? `, ${q(sel)}` : ''})`);
+export const check = (sel: string, on = true): Step => tag(async p => { await p.locator(sel).first().setChecked(on, { force: true }); }, `check(${q(sel)}, ${on})`);
+export const select = (sel: string, value: string): Step => tag(async p => { await p.locator(sel).first().selectOption(value); }, `select(${q(sel)}, ${q(value)})`);
+export const wait = (sel: string): Step => tag(async p => { await p.locator(sel).first().waitFor(); }, `wait(${q(sel)})`);
 /** Run several steps in order. */
-export const seq = (...steps: Step[]): Step => async p => { for (const s of steps) await s(p); };
+export const seq = (...steps: Step[]): Step => tag(async p => { for (const s of steps) await s(p); },
+  `seq(${steps.map(s => s.src ?? s.toString()).join(', ')})`);
 /** Click `sel` until `until` is visible: for controls that are wired up late. */
-export const clickUntil = (sel: string, until: string, tries = 10): Step => async p => {
+export const clickUntil = (sel: string, until: string, tries = 10): Step => tag(async p => {
   for (let i = 0; i < tries && !(await p.locator(until).first().isVisible()); i++) {
     await p.locator(sel).first().click(); await p.waitForTimeout(300);
   }
-};
+}, `clickUntil(${q(sel)}, ${q(until)}, ${tries})`);
 
 /* ---------------------------------------------------------------- resolution */
 
@@ -230,3 +246,32 @@ export function chainOf(n: UINode, byId: Map<string, UINode>): UINode[] {
 export const groupOf = (n: UINode, byId: Map<string, UINode>): string | undefined => {
   for (let c: UINode | undefined = n; c; c = c.parent ? byId.get(c.parent) : undefined) if (c.group) return c.group;
 };
+
+/* ---------------------------------------------------------------- cases */
+
+/** One node per `*.json` case in `dir`; the app's harness page renders `?case=<basename>` (it loads the JSON itself). */
+export function fromCases(opts: {
+  dir: string; harness: string; param?: string; ready?: string; parent?: string; group?: string;
+  kind?: Kind; idPrefix?: string; components?: Component[];
+}): UINode[] {
+  const dir = path.resolve(ATLAS_ROOT, opts.dir);
+  if (!fs.existsSync(dir)) throw new Error(`Golden Map Atlas: cases folder not found: ${dir}`);
+  const param = opts.param ?? 'case';
+  return fs.readdirSync(dir).filter(f => f.endsWith('.json')).sort().map(f => {
+    const base = f.slice(0, -'.json'.length);
+    const raw = fs.readFileSync(path.join(dir, f), 'utf8');
+    const json = JSON.parse(raw);
+    return {
+      id: `${opts.idPrefix ?? 'case'}:${base}`,
+      label: json.title ?? base,
+      kind: opts.kind ?? 'case',
+      parent: opts.parent,
+      group: opts.group,
+      tags: [...(json.tags ?? []), json.tests ?? ''].filter(Boolean),
+      url: `${opts.harness}?${param}=${encodeURIComponent(base)}`,
+      ready: json.ready ?? opts.ready ?? 'body[data-ready="1"] #case-root',
+      hashInput: raw,
+      components: opts.components,
+    };
+  });
+}

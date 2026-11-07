@@ -2,7 +2,7 @@
 
 # Golden Map Atlas
 
-Golden Map Atlas works with any web app. Playwright drives the running app and captures a golden screenshot of every page, in-page state and sub-component, once per **variant** (light and dark themes, a mobile viewport, a locale, and so on). The goldens serve as visual-regression baselines, and the tool also builds one offline `dashboard.html` that shows the whole UI as a searchable graph of how screens connect. The only project-specific file is `atlas.config.ts`.
+Golden Map Atlas works with any web app. Playwright drives the running app and captures every page, in-page state and sub-component, once per **variant** (light and dark themes, a mobile viewport, a locale, and so on). Each capture is compared with an approved **golden** image. A person reviews every change in a small review UI, and only an approval writes a new golden. The tool also builds one offline `dashboard.html` that shows the whole UI as a searchable graph of how screens connect. The only project-specific file is `atlas.config.ts`.
 
 ---
 
@@ -11,14 +11,19 @@ Golden Map Atlas works with any web app. Playwright drives the running app and c
 **Windows**
 
 ```bat
-script\setup.bat      :: installs npm packages and Chromium, creates atlas.config.ts if missing
-script\run.bat atlas  :: captures, builds dashboard.html and opens it (or script\run.bat alone for a menu)
+script\setup.bat             :: installs npm packages and Chromium, creates atlas.config.ts if missing
+script\run.bat capture       :: first run: captures every screen into review/actual (no goldens yet)
+script\run.bat approve-new   :: accepts those first captures as the goldens
+script\run.bat atlas         :: later runs: captures again, builds dashboard.html and opens it
+script\run.bat review        :: opens the review UI, where each change is approved or denied
 ```
 
 **macOS / Linux**
 
 ```sh
 ./script/setup.sh
+./script/run.sh capture
+./script/run.sh approve-new
 ./script/run.sh atlas
 ```
 
@@ -26,10 +31,12 @@ script\run.bat atlas  :: captures, builds dashboard.html and opens it (or script
 
 ```sh
 npm run setup
+npm run capture
+npm run approve-new
 npm run atlas
 ```
 
-Double-clicking a `.bat` file works too; the window stays open at the end so you can read the output.
+The first run has no goldens, so every screen shows as `new`. Approve them once with `approve-new` (or one by one in the review UI), and from then on each run compares against them. Double-clicking a `.bat` file works too; the window stays open at the end so you can read the output.
 
 ### Requirements
 
@@ -54,16 +61,20 @@ If a `.sh` wrapper reports "permission denied", run `chmod +x script/*.sh` once,
 
 | Mode | npm | What it does |
 |---|---|---|
-| `atlas` | `npm run atlas` | Capture, accept the captures as the new goldens, build `dashboard.html`, open it |
-| `capture` | `npm run capture` | Capture and accept goldens only (no build) |
+| `atlas` | `npm run atlas` | Capture into `review/actual` (goldens are not changed), build `dashboard.html`, open it |
+| `capture` | `npm run capture` | Capture and write the records only. No goldens change |
+| `check` | `npm run check` | Capture, then exit 1 unless every record is `match` or `volatile`. Prints the keys that need review. No goldens change |
+| `review` | `npm run review` | Start the review server, open the review UI in the browser and keep running until Ctrl+C |
+| `approve-new` | `npm run approve-new` | Approve every record with status `new`. Use it after the first capture. Prints how many it approved |
+| `approve-all` | `npm run approve-all` | Approve every record that is not `match`, after you type `yes`. `--yes` skips the prompt |
 | `build` | `npm run build` | Rebuild `dashboard.html` from the existing screenshots, then open it |
-| `check` | `npm run check` | Compare the app with the goldens without changing them. On drift it exits 1 and opens the diff report |
 | `crawl` | `npm run crawl` | Follow links from `crawl.start` and write `atlas.crawl.json` (see [Config reference](#config-reference)) |
 | `open` | `npm run open` | Open the last built `dashboard.html` |
 | `report` | `npm run report` | Open the last Playwright HTML report |
-| `clean` | `npm run clean` | Delete `goldens/`, `shots/`, `report/`, `test-results/`, `dashboard.html` and `atlas.crawl.json` |
+| `clean` | `npm run clean` | Delete `review/`, `shots/`, `report/`, `test-results/`, `dashboard.html` and `atlas.crawl.json`. Goldens are kept |
+| `clean --goldens` | `npm run clean -- --goldens` | The same, and also delete `goldens/` |
 
-`clean` deletes the goldens too. Commit them first if you want to keep them.
+Only `approve-new`, `approve-all`, the **Approve** and **Deny** buttons in the review UI, and `clean --goldens` change what is approved or removed. Commit the goldens before you run `clean --goldens` if you want to keep them.
 
 **Extra options**
 
@@ -87,20 +98,24 @@ If a `.sh` wrapper reports "permission denied", run `chmod +x script/*.sh` once,
 
    The static server has no SPA fallback. Every URL you list must exist as a file in the folder.
 
-5. **Run `atlas`** and review the dashboard.
-6. **Commit the goldens.** The project's `.gitignore` ignores `goldens/` only because the bundled demo owns those files. In your repository, remove the `goldens/` line. Commit `goldens/` together with `atlas.config.ts`. Keep `shots/`, `dashboard.html`, `report/` and `test-results/` ignored. Decide whether to commit `atlas.crawl.json`: it is generated by `crawl`, and CI needs it if you want the crawled pages in the comparison.
+5. **Run `capture`, then `approve-new`** to accept the first set of goldens. Then run `atlas` and review the dashboard.
+6. **Commit the goldens.** The project's `.gitignore` ignores `goldens/` only because the bundled demo owns those files. In your repository, remove the `goldens/` line. Commit `goldens/` (the `.png` files, the `*.meta.json` files and `denied.json`) together with `atlas.config.ts`. Keep `review/`, `shots/`, `dashboard.html`, `report/` and `test-results/` ignored. Decide whether to commit `atlas.crawl.json`: it is generated by `crawl`, and CI needs it if you want the crawled pages in the comparison.
 
 ---
 
 ## Architecture
 
 ```
-atlas.config.ts ──► golden.spec.ts ──► goldens/<variant>/*.png          (baselines, committed)
-  (your app)        (Playwright)  ├──► shots/nodes/<variant>/*.json     (per-node records)
-                                  └──► shots/meta.json                  (title, groups, variants)
-                                                 │
-                       build-dashboard.mjs  ◄────┘
-                       template.html  ───►  dashboard.html   (one offline file: libs, data, WebP inlined)
+atlas.config.ts ──► golden.spec.ts ──► review/actual/<variant>/*.png    (latest capture, ignored)
+  (your app)        (Playwright)   ├──► review/diff/<variant>/*.png      (pixel diff, ignored)
+                                   ├──► review/records/<variant>/*.json  (status, reasons, decision)
+                                   └──► shots/nodes/*.json, shots/meta.json
+
+goldens/<variant>/*.png + *.meta.json ◄── store.mjs ◄── review-server.mjs ◄── review.html
+goldens/denied.json                   ◄──┘   (approve / deny: the only writers of goldens)
+
+build-dashboard.mjs  ◄── shots/, review/actual/, goldens/   ──►  dashboard.html
+template.html  ─────────────────────────────────────────────►  dashboard.html   (one offline file: libs, data, WebP inlined)
 ```
 
 Optional discovery: `crawl.spec.ts` writes `atlas.crawl.json`. `loadNodes()` in `core/atlas.ts` adds every crawled page that no hand-written node already covers.
@@ -111,10 +126,13 @@ Optional discovery: `crawl.spec.ts` writes `atlas.crawl.json`. `loadNodes()` in 
 |---|---|
 | `atlas.config.ts` | **The only project-specific file.** Nodes, variants, server, fixtures, masks, groups |
 | `core/atlas.ts` | Public API: config types, `defineAtlas`, step helpers, node resolution |
-| `core/golden.spec.ts` | One Playwright test per node per variant: full page, components, collection items, JSON record |
+| `core/golden.spec.ts` | One Playwright test per node per variant: full page, components, collection items. Captures each shot stably, compares it with its golden and writes a record. The test fails on any status other than `match` or `volatile` |
+| `core/store.mjs` | Shared storage for the review workflow, used by the spec, the server and the CLI. Compares images, evaluates statuses, writes records, and approves or denies. The only module that writes `goldens/` |
+| `core/review-server.mjs` | Local review server (`127.0.0.1`, zero dependencies). Serves the review UI, the records and the images, and runs captures from the UI |
+| `core/review.html` | The review UI: queue, side-by-side / slider / overlay / diff views, approve and deny |
 | `core/crawl.spec.ts` | Optional breadth-first link crawler (`crawl` mode) |
-| `core/build-dashboard.mjs` | Merges the records, converts screenshots to WebP through headless Chromium, inlines the libraries and writes `dashboard.html` |
-| `core/template.html` | The dashboard UI (graph, search, details panel) |
+| `core/build-dashboard.mjs` | Merges the records, takes each image from `review/actual/` (or `goldens/`), converts screenshots to WebP through headless Chromium, inlines the libraries and writes `dashboard.html` |
+| `core/template.html` | The dashboard UI (graph, search, details panel, status) |
 | `core/serve.mjs` | Zero-dependency static server with `no-cache` headers, used for `staticDir` |
 | `core/cli.mjs` | Command dispatcher behind every wrapper and npm script |
 | `playwright.config.ts` | Generic. One project per variant, all settings read from `atlas.config.ts` |
@@ -134,8 +152,13 @@ Optional discovery: `crawl.spec.ts` writes `atlas.crawl.json`. `loadNodes()` in 
 ├── package.json · tsconfig.json · playwright.config.ts
 ├── script/                 setup.* · deps.* · config.* · run.* (.bat + .sh)
 │
+│  reviewed baselines (commit them in your project):
+├── goldens/<variant>/*.png        approved images
+├── goldens/<variant>/*.meta.json  approval metadata: hashes, size, approvedAt, note
+├── goldens/denied.json            denied captures, with the note
+│
 │  generated (ignored by default):
-├── goldens/<variant>/*.png  baselines
+├── review/                  actual/, diff/, records/, run.log
 ├── shots/                   nodes/<variant>/*.json, meta.json, intermediate records
 ├── dashboard.html
 ├── report/                  Playwright HTML report
@@ -172,7 +195,7 @@ Everything is set in `atlas.config.ts` with `defineAtlas({ ... })`. Only `title`
 | `workers` | `number` | 50% of CPUs | Parallel Playwright workers |
 | `timeout` | `number` | `60000` | Default per-test timeout in ms |
 | `actionTimeout` | `number` | `15000` | Timeout for each Playwright action. A renamed selector fails fast |
-| `maxDiffPixelRatio` | `number` | `0.01` | Share of pixels allowed to differ before a golden fails |
+| | `review` | `ReviewOptions` | `{}` | Comparison thresholds, review server port and the markup signal. See [Review options](#review-options) |
 
 ### UINode
 
@@ -189,6 +212,7 @@ Everything is set in `atlas.config.ts` with `defineAtlas({ ... })`. Only `title`
 | `ready` | `string` | Selector that must be visible before the shot (default `body`) |
 | `fixture` | `string` | Fixture applied before the chain root loads. Put it on the node with `url` |
 | `volatile` | `boolean` | Captured for the atlas but never compared (canvas, video, maps) |
+| `hashInput` | `string` | Extra text mixed into the config hash, for example the contents of a case file. Changing it makes the shot `changed` with reason `config` |
 | `mask` | `string[]` | Extra masks for this node only |
 | `components` | `Component[]` | Sub-regions captured as their own child nodes, when visible |
 | `collection` | `Collection` | One child node per matching element |
@@ -271,6 +295,57 @@ Import them from `./core/atlas`. Each returns a `Step`, a function that takes a 
 | `seq` | `seq(...steps)` | Runs several steps in order |
 | `clickUntil` | `clickUntil(sel, until, tries = 10)` | Clicks `sel` until `until` is visible. For controls that are wired up late |
 
+### Review options
+
+`review` is optional. Every field has a default.
+
+| Field | Type | Default | Purpose |
+|---|---|---|---|
+| `threshold` | `number` | `0.0005` | Share of the shot's pixels allowed to differ (0.05 %) before a shot is `changed`. Small changes on tall full-page shots can stay under it, see [Status rules](#status-rules) |
+| `pixelThreshold` | `number` | `0.1` | Per-pixel colour tolerance for pixelmatch, from 0 to 1 |
+| `port` | `number` | `8097` | Port for `review`. Read by the server from `shots/meta.json` |
+| `htmlHash` | `boolean` | `true` | Set to `false` to turn off the markup signal and compare pixels only. The "HTML identical" hint is then never shown |
+| `ignoreAttributes` | `string[]` | `[]` | Attributes removed from every element before the markup hash, for example per-run random `data-*` ids. `nonce` is always removed |
+
+### Cases (isolated inputs)
+
+A case is a small JSON file that holds one input for the app to render on its own, such as a formatter string or a card with unusual data. `fromCases` turns every `*.json` file in a folder into one node. Each node opens a **harness page** that the app provides. The harness reads `?case=<name>`, loads `cases/<name>.json` and renders it.
+
+```ts
+import { defineAtlas, fromCases } from './core/atlas';
+
+const nodes: UINode[] = [
+  // ...your nodes
+  ...fromCases({ dir: 'examples/demo-site/cases', harness: '/harness.html', parent: 'home', group: 'cases' }),
+];
+```
+
+A case file:
+
+```json
+{ "title": "Bold text", "tests": "formatText: **bold**", "tags": ["inline", "bold"], "input": "Some **bold** text" }
+```
+
+| Option | Default | Purpose |
+|---|---|---|
+| `dir` | required | Folder of case files, relative to the atlas folder |
+| `harness` | required | URL of the harness page, for example `/harness.html` |
+| `param` | `case` | Query parameter that carries the case name |
+| `ready` | `body[data-ready="1"] #case-root` | Selector that must be visible before the shot, so the harness signals "done rendering" by setting `document.body.dataset.ready = '1'`. A case file can set its own `ready` |
+| `parent`, `group` | none | Parent node id and group, as for any node |
+| `kind` | `case` | Kind of the emitted nodes |
+| `idPrefix` | `case` | Node ids are `<prefix>:<file name>` |
+| `components` | none | Components to capture inside each case |
+
+Each node takes its label from `title` (or the file name) and its tags from `tags` and `tests`. The whole file is hashed into the config hash, so editing a case makes its shot `changed` with reason `config`.
+
+The harness page is ordinary app code. It should:
+
+- load the app's real scripts (the demo loads `app.js`), so the case runs the real formatter;
+- render the input into `#case-root` inside a box of fixed width (the demo uses 760 px), so screenshots stay stable.
+
+The demo ships a harness (`examples/demo-site/harness.html` and `harness.js`) and eight cases (`examples/demo-site/cases/*.json`): bold, italic, code, link, list, table, a mixed "kitchen sink", and unsupported syntax, which pins the output for markup the formatter does not handle.
+
 ### Examples
 
 A page node with components and a collection:
@@ -350,28 +425,120 @@ Open `dashboard.html` in any modern browser. It works from `file://`, with no se
 | **Compare variants** | In the details panel, or in the full-size view, shows every variant side by side |
 | **Full size** | Opens a node's screenshot in the lightbox. Esc or a click outside closes it |
 | **Deep links** | `dashboard.html#node=<id>` opens directly on that node, for example `#node=settings:saved`. The URL follows your selection |
+| **Status** | A red ring marks a `changed` node and a blue dot marks a `new` one. The details panel shows the status and its reasons. The header counts the changed and new nodes. The **Changed only** chip shows just those nodes and their ancestors |
 
 ---
 
 ## Visual regression workflow
 
-- **`atlas` / `capture`** runs Playwright with `--update-snapshots`. It writes the current look of the app into `goldens/` as the new baseline, so it accepts every change.
-- **`check`** runs Playwright without updating anything. It fails on any pixel difference above `maxDiffPixelRatio` and opens the diff report.
+Every shot has a status. A person decides which changes are intended; nothing is approved automatically except `match` and `volatile` shots.
+
+- **`capture`** writes the latest screenshots to `review/actual/` and one record per shot. It changes no goldens.
+- **`check`** does the same capture, then exits with code 1 unless every record is `match` or `volatile`. It prints the keys that need attention.
+- **`review`** opens the review UI, where each changed or new shot is approved or denied. Only approval writes a golden.
+- **`approve-new`** and **`approve-all`** are the bulk versions, for the first baseline and for a redesign you have checked.
+
+A full run (no Playwright arguments after `--`) starts from a clean slate: `capture`, `check` and `atlas` delete the fragments and captures of nodes that were removed from the config, so they no longer show in the review queue or the dashboard. Goldens are kept (see Troubleshooting).
 
 A typical loop:
 
 1. Make a UI change.
-2. Run `check`. Read the report.
-3. If the change is intended, run `atlas`. Review the diff in git, then commit the new goldens with the code change.
+2. Run `check`. It lists the shots that changed.
+3. Run `review`. Compare Approved, Actual and Diff, then approve the change or deny it with a note.
+4. Commit the new goldens (`.png` and `.meta.json`) and `goldens/denied.json` with the code change.
 
-Each node is one Playwright test, named after its id, so `--grep` works. For example, `./script/run.sh check -- --grep "settings"`.
+Each shot is one Playwright test, named after its id, so `--grep` works. For example, `./script/run.sh check -- --grep "settings"`.
+
+Only one capture runs at a time. A running capture holds the lock file `review/.capture.lock`. The CLI and the review server refuse to start a second capture while it is held, so wait for the first one to finish. A lock left behind by a crashed run is ignored automatically, because its process is no longer alive.
+
+## Review workflow
+
+### The loop
+
+```
+capture ──► review/actual/<variant>/<file>.png        (retaken until two captures are byte-identical)
+   │
+compare ──► goldens/<variant>/<file>.png              (pixelmatch + HTML hash + config hash)
+   │
+record  ──► review/records/<variant>/<file>.json      (status, reasons, decision; diff in review/diff/)
+   │
+review  ──► approve (a) ──► goldens/…png + …meta.json  (the only writer of goldens)
+            deny    (d) ──► goldens/denied.json        (the golden stays as it was)
+```
+
+`capture` never writes a golden. Approval does, in the review UI or with `approve-new` and `approve-all`. A denial is stored with the capture's hashes, so the same unchanged capture is not asked about again.
+
+### Status rules
+
+| Situation | Status | Decision |
+|---|---|---|
+| The node is `volatile` | `volatile` | `approved` (never compared; the capture is still saved) |
+| No golden exists yet | `new` | `pending` |
+| Same size, same HTML hash, same config hash, and diff ratio within `threshold` | `match` | `approved` |
+| Anything else | `changed`, with reasons | `denied` if `denied.json` has this key with the same `actualHash` and `configHash` (the note carries over), otherwise `pending` |
+
+The reasons say what differs:
+
+- `size`: the width or height differs from the golden.
+- `pixels`: the size is the same, but more pixels differ than `threshold` allows.
+- `html`: the markup of the shot target changed.
+- `config`: the node's configuration changed, for example its steps, components, mask, variant, fixture or `hashInput`.
+
+A golden without its `.meta.json` (for example one copied from an older version or from another project) has no stored hashes, so it is reported as `changed` with reasons `html` and `config`, even when its pixels match. Approve it once to write the metadata. `html` is only given while the markup signal is on.
+
+`threshold` is `review.threshold` (default 0.0005, which is 0.05 % of the shot's pixels). `pixelThreshold` is the per-pixel tolerance, `review.pixelThreshold` (default 0.1).
+
+`threshold` is a share of the whole shot's pixels, not of the changed area. On a tall full-page shot, a small pixel-only change (CSS, an image, a font) can stay under it, and the shot is then `match`. The same change is a larger share of a component or a collection item, which is shot at its own size, so it is caught there. Capture components for the regions that matter.
+
+### Two signals: markup and pixels
+
+The pixel diff says whether anything looks different. The HTML hash says whether the markup of the screen changed. The hash is computed from the outer HTML of the shot target, with scripts removed, masked text emptied, whitespace collapsed, and the attributes listed in `review.ignoreAttributes` removed (`nonce` is always removed). Use `ignoreAttributes` for attributes that change on every run, such as random `data-*` ids. Otherwise the markup signal reports a change on every run.
+
+When the pixels change but the HTML does not, the change came from CSS, a font, an image, or the browser and OS that rendered the page. The review UI shows this as **HTML identical → change came from CSS, not markup** (`htmlIdentical: true`). Set `review.htmlHash: false` to turn the markup signal off and compare pixels only. With it off, the "HTML identical" hint is never shown, and the `html` reason is never given.
+
+### Decisions and config changes
+
+A decision applies to one capture under one configuration. The config hash covers the node's steps, components, collection, mask, variant (including its `prepare` function), fixture files and `hashInput`. If any of them changes, the approved golden no longer matches and the record goes back to `changed` with reason `config` and decision `pending`. An old denial does not carry over either.
+
+How steps are hashed matters. Step helpers (`click`, `fill`, `seq`, and so on) are hashed with their arguments: each carries a `src` tag such as `click("#newBtn")`, so changing a selector or a value changes the hash. Hand-written `steps: async p => {…}` functions, and `prepare` hooks, are hashed by their source text. A change to a variable they close over is not detected, because the source text stays the same. When that happens, re-approve the affected shots, or change the node so its hash changes.
+
+Approving writes the new hashes into `goldens/<variant>/<file>.meta.json`. After that, the same capture is a `match`.
+
+### Review UI
+
+```bat
+script\run.bat review
+```
+
+The UI opens at `http://127.0.0.1:8097/` by default. Set `review.port` or pass `--port` to change it. It shows the records in a queue on the left, and the selected shot on the right.
+
+| Key or control | Action |
+|---|---|
+| `j` / `k` | Next / previous record |
+| `a` | Approve the current record |
+| `d` | Deny the current record, with a note |
+| Approve visible new | Approve every visible `new` record, after a confirmation |
+| Run capture | Run Playwright (optionally filtered by `grep` or variant) and show the live log. The queue reloads when it finishes |
+
+Filters: status (`new` and `changed` by default), decision, variant, kind, group and a text or tag search.
+
+View modes for the shot:
+
+- **Side by side**: Approved, Actual and Diff.
+- **Slider**: drag a divider across Approved and Actual.
+- **Overlay**: Actual on top of Approved, with an opacity slider.
+- **Diff only**: the pixel diff.
+
+Zoom is either fit-to-window or 100 %.
 
 ### CI
 
-- Run `check` in CI and fail the build on drift. Use the Node version and Chromium from `deps`.
-- Goldens depend on the operating system, fonts and browser build. Generate them on the same OS and image that CI uses. Otherwise, text anti-aliasing will differ and tests will fail even though nothing changed. A common setup is to run `atlas` in a container that matches CI, then commit the goldens.
-- Upload `report/` as a build artifact so reviewers can see the diffs.
-- Do not run `atlas` in CI, because it accepts whatever it captures.
+- Run `check` in CI and fail the build on drift. It exits with code 1 when any shot is not `match` or `volatile`.
+- Commit `goldens/` with the `*.meta.json` files and `denied.json`. CI compares against these.
+- Use the Node version and Chromium from `deps`.
+- Goldens depend on the operating system, fonts and browser build. Generate them on the same OS and image that CI uses. Otherwise, text anti-aliasing will differ and tests will fail even though nothing changed. A common setup is to run `capture` and `approve-new` in a container that matches CI, then commit the goldens.
+- Upload `review/` (`actual`, `diff`, `records`) and `report/` as build artifacts, so reviewers can see the changes.
+- Do not run `approve-new` or `approve-all` in CI. They accept whatever was captured, and approval is for people.
 
 ---
 
@@ -387,7 +554,18 @@ Each node is one Playwright test, named after its id, so `--grep` works. For exa
 | `unknown fixture "x"` | `fixture` names a key that is not in `fixtures` |
 | `waiting for locator(...)` | The selector changed in the app, or the element never appears. Update `ready`, `steps` or the component selectors. `actionTimeout` makes this fail quickly |
 | `Failed to take two consecutive stable screenshots` | Something on the screen keeps moving. Mask it, add a `freezeCss` rule, or mark the node `volatile: true` |
-| Many goldens fail by a few percent of pixels | The UI really changed (CSS, fonts) or the goldens were made on another OS. If the change is intended, run `atlas`. If not, see the CI notes above |
+| Many shots are `changed` by a few percent of pixels | The UI really changed (CSS, fonts), or the goldens were made on another OS. Open `review` and check whether the change is intended. If it is not, see the CI notes |
+| Many pixel-only changes, and the review UI says "HTML identical" | The markup did not change, so the cause is CSS, a font, an image or the browser build. Typical after a font or CDN update. Approve the change if it is intended. If it is not, check the fonts and the browser version |
+| Every shot is `new` after setup | There are no goldens yet. Run `capture`, then `approve-new`, or approve in `review` |
+| Every shot is `pending` after editing `atlas.config.ts` | The config hash changed (steps, components, mask, variant, `hashInput`), so approvals and denials no longer match. Review the shots again |
+| A shot is `changed` with reason `html` but looks the same | The markup changed without a visible effect, such as a class or an attribute. Check the source of the screen |
+| A shot is `changed` on every run with no real change | Something moves: a clock, an animation or a random value. Mask it, add a `freezeCss` rule, or set `volatile: true` |
+| A small change on a tall full-page shot is `match` | `threshold` is a share of the whole shot, so a small pixel-only change (CSS, an image, a font) can stay under it. Capture the region as a `component`, or lower `review.threshold` |
+| A golden is `changed` with reasons `html` and `config`, and its pixels match | Its `.meta.json` is missing, so no hashes are stored. Approve it once in `review` (or with `approve-all`) |
+| A shot is `changed` with reason `html` on every run, with no markup change | An attribute changes on every run, for example a random `data-*` id. List it in `review.ignoreAttributes` |
+| A shot stays `match` after a variable used in a hand-written `steps` function changed | Hand-written step functions are hashed by their source text, not by what they close over. Re-approve the shot or change the node. Step helpers such as `click` are hashed with their arguments |
+| A capture refuses to start | Another capture is running. Only one runs at a time, tracked by `review/.capture.lock`. Wait for it to finish. A lock from a crashed run is cleared automatically |
+| `review` reports that the port is in use | Another process uses 8097. Pass `--port` or set `review.port` |
 | Dates, counters or avatars differ between runs | Mask them with `mask`, or set `clock` for dates |
 | A node times out | The default timeout is `timeout`, 60 s. Collection nodes get `60 s + 3 s × max` (or 100 items if `max` is unset). Raise `timeout` on the node |
 | `Server` never starts, or the wrong app is captured | Playwright reuses whatever answers at the port (`reuseExisting` defaults to `true`). Stop the other process, or change the port |
@@ -395,8 +573,8 @@ Each node is one Playwright test, named after its id, so `--grep` works. For exa
 | Search does not find some text | Only elements matching `textSelectors` are indexed. Add a selector for the element that holds the text |
 | A node in the graph has no picture | Its capture failed. The node stays in the graph. Run `atlas` again and read the failing test name in the output |
 | `No shots/meta.json` or `No fragments in shots/nodes` | Nothing has been captured yet. Run `atlas` or `capture` first |
-| `N golden(s) missing` during build | Some records point at files that are no longer in `goldens/`. Run `atlas` to regenerate them |
-| Removed nodes still show up in `goldens/` | Goldens are not deleted automatically. Delete their files in `goldens/<variant>/`, or run `clean` and `atlas` for a full reset |
+| `N golden(s) missing` during build | Some records point at files that are no longer in `goldens/`. Run `capture`, then approve the `new` shots |
+| Removed nodes still show up in `goldens/` | Goldens are not deleted automatically. Delete their `.png` and `.meta.json` files in `goldens/<variant>/`, or run `clean --goldens` and capture again |
 | `dashboard.html` is too large | Lower `--full` or `--q`, or leave out some collection items or variants |
 | `Node ... is too old` | Install Node 18 or newer |
 | Playwright or Chromium errors on first run | Run `deps` again. It installs the missing pieces |
@@ -408,9 +586,11 @@ Each node is one Playwright test, named after its id, so `--grep` works. For exa
 
 ### `examples/demo-site` (root `atlas.config.ts`)
 
-A small static shop with a home page, a product grid, a new-product dialog, a filter, a settings page with tabs and a save confirmation. The root `atlas.config.ts` maps it, with three variants (light, dark, mobile) and one collection of product cards.
+A small static shop with a home page, a product grid, a new-product dialog, a filter, a settings page with tabs and a save confirmation. The root `atlas.config.ts` maps it, with three variants (light, dark, mobile), one collection of product cards, and a `cases` group. The eight formatter cases are isolated inputs rendered by `harness.html` (see [Cases](#cases-isolated-inputs)).
 
 ```bat
+script\run.bat capture
+script\run.bat approve-new
 script\run.bat atlas
 ```
 
