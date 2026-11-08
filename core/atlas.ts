@@ -6,13 +6,16 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import type { Page } from '@playwright/test';
+import { test } from '@playwright/test';
+import type { Locator, Page, Response } from '@playwright/test';
 export type { Page };
 
+/** Repo root, where atlas.config.ts and the app's sources live. Ignores ATLAS_ROOT. */
+export const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 /** Same root rule as core/store.mjs, so shots/ and review/ always share one root. */
 export const ATLAS_ROOT = process.env.ATLAS_ROOT
   ? path.resolve(process.env.ATLAS_ROOT)
-  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  : PROJECT_ROOT;
 
 /* ---------------------------------------------------------------- types */
 
@@ -56,6 +59,8 @@ export type UINode = {
   steps?: Step;
   /** Selector that must be visible before the screenshot (default 'body'). */
   ready?: string;
+  /** Wait for network idle before `ready`: for nodes reached by a search or filter that fires a request. */
+  readyAfter?: 'networkidle';
   /** Name of a `fixtures` entry applied before the chain root loads. */
   fixture?: string;
   /** Captured for the atlas but never compared (live canvas, video, maps…). */
@@ -97,11 +102,27 @@ export type Fixture = {
   prepare?: (page: Page) => Promise<void>;
 };
 
+/** Readiness by condition: the port answering is not the app being ready. */
+export type ServerReady = {
+  /** Path polled on baseURL (default '/'). */
+  url?: string;
+  /** Expected HTTP status (default 200). */
+  status?: number;
+  /** Substring the body must contain. */
+  bodyIncludes?: string;
+  /** Predicate on the parsed JSON body (the text when it is not JSON). */
+  until?: (body: any) => boolean;
+  /** Give up after this many ms (default 120000). */
+  timeout?: number;
+  /** Poll interval in ms (default 500). */
+  interval?: number;
+};
+
 export type Server =
-  /** Start your own dev server. */
-  | { command: string; url?: string; cwd?: string; timeout?: number; reuseExisting?: boolean }
+  /** Start your own dev server. `ready` waits for an app condition, not just the port. */
+  | { command: string; url?: string; cwd?: string; timeout?: number; reuseExisting?: boolean; ready?: ServerReady }
   /** Serve a folder of static files with the bundled no-cache server. */
-  | { staticDir: string; port?: number; url?: string };
+  | { staticDir: string; port?: number; url?: string; ready?: ServerReady };
 
 export type Crawl = {
   /** Start URLs (relative to baseURL). */
@@ -129,6 +150,10 @@ export type AtlasConfig = {
   mask?: string[];
   /** Extra CSS injected before shooting (hide overlays, confetti canvases…). */
   freezeCss?: string;
+  /** Repeat each shot until two consecutive takes are identical (default { max: 5, interval: 150 }); false takes one shot. */
+  stableShots?: { max?: number; interval?: number } | false;
+  /** Canvases animate and cannot be frozen by CSS: 'mask' hides them from diffs but keeps their place (default), 'hide' removes them, 'keep' compares them as drawn. */
+  freezeCanvas?: 'hide' | 'mask' | 'keep';
   /** Fixed clock for Date / timers; false to leave real time. */
   clock?: string | false;
   /** Seed Math.random deterministically (default true). */
@@ -141,36 +166,77 @@ export type AtlasConfig = {
   groups?: Record<string, string>;
   /** Wording for the viewer. */
   labels?: { item?: string; items?: string };
+  /** App theme kept in localStorage: each variant writes `light` or `dark` under `storageKey` (defaults 'light' and 'dark'). colorScheme is still needed for prefers-color-scheme. */
+  theme?: { storageKey: string; light?: string; dark?: string };
   /** Optional link crawler that adds every reachable page as a node (`npm run crawl`). */
   crawl?: Crawl;
   /** Playwright knobs. */
   workers?: number;
   timeout?: number;
   actionTimeout?: number;
+  /** Load baseURL once in a browser before the workers start, so the first tests do not pay the cold start (default true). */
+  warmup?: boolean;
+  /** Retries for failing tests (default 1). A visual mismatch is never re-captured. */
+  retries?: number;
   /** Visual review: diff thresholds, review server port, and whether markup is hashed (default true). */
   review?: {
     threshold?: number; pixelThreshold?: number; port?: number; htmlHash?: boolean;
     /** Attributes removed from every element before the markup hash, e.g. per-run `data-*` ids (default []). `nonce` is always removed. */
     ignoreAttributes?: string[];
+    /** Markup-only differences fail the check (default false: they are shown as informational `htmlChanged`). */
+    failOnHtml?: boolean;
+    /** Anti-aliased pixels do not count as differences, so sub-pixel borders and text edges do not fail (default true). */
+    ignoreAntialiasing?: boolean;
   };
 };
 
 export const defineAtlas = (c: AtlasConfig) => c;
+
+/** localStorage entry for the variant's theme (empty without `config.theme`). */
+export const themeStorage = (config: AtlasConfig, v: Variant): Record<string, string> => config.theme
+  ? { [config.theme.storageKey]: v.colorScheme === 'dark' ? (config.theme.dark ?? 'dark') : (config.theme.light ?? 'light') }
+  : {};
 
 /* ---------------------------------------------------------------- step helpers */
 
 /** Attach a readable source tag: functions alone stringify identically whatever their arguments are. */
 const tag = (fn: (page: Page) => Promise<void>, src: string): Step => Object.assign(fn, { src });
 const q = JSON.stringify;
+/** The project's actionTimeout (30 s when unset): bounds how long a step waits for its target. */
+const actionTimeout = (): number => {
+  try { return test.info().project.use.actionTimeout || 30_000; } catch { return 30_000; }
+};
+const waitEnabled = async (p: Page, loc: Locator, sel: string, timeout: number) => {
+  const deadline = Date.now() + timeout;
+  while (!(await loc.isEnabled())) {
+    if (Date.now() > deadline) throw new Error(`Golden Map Atlas: "${sel}" is still disabled after ${timeout} ms`);
+    await p.waitForTimeout(100);
+  }
+};
+/** First visible match of `sel`, waited for until visible and enabled. */
+const target = async (p: Page, sel: string): Promise<Locator> => {
+  const timeout = actionTimeout();
+  const loc = p.locator(sel).locator('visible=true').first();
+  await loc.waitFor({ state: 'visible', timeout });
+  await waitEnabled(p, loc, sel, timeout);
+  return loc;
+};
 
-export const click = (sel: string): Step => tag(async p => { await p.locator(sel).first().click(); }, `click(${q(sel)})`);
-export const hover = (sel: string): Step => tag(async p => { await p.locator(sel).first().hover(); }, `hover(${q(sel)})`);
-export const fill = (sel: string, value: string): Step => tag(async p => { await p.locator(sel).first().fill(value); }, `fill(${q(sel)}, ${q(value)})`);
+export const click = (sel: string): Step => tag(async p => { await (await target(p, sel)).click(); }, `click(${q(sel)})`);
+export const hover = (sel: string): Step => tag(async p => { await (await target(p, sel)).hover(); }, `hover(${q(sel)})`);
+export const fill = (sel: string, value: string): Step => tag(async p => { await (await target(p, sel)).fill(value); }, `fill(${q(sel)}, ${q(value)})`);
 export const press = (key: string, sel?: string): Step => tag(async p => {
   if (sel) await p.locator(sel).first().press(key); else await p.keyboard.press(key);
 }, `press(${q(key)}${sel ? `, ${q(sel)}` : ''})`);
-export const check = (sel: string, on = true): Step => tag(async p => { await p.locator(sel).first().setChecked(on, { force: true }); }, `check(${q(sel)}, ${on})`);
-export const select = (sel: string, value: string): Step => tag(async p => { await p.locator(sel).first().selectOption(value); }, `select(${q(sel)}, ${q(value)})`);
+export const check = (sel: string, on = true): Step => tag(async p => {
+  const timeout = actionTimeout();
+  const loc = p.locator(sel).first();
+  await loc.waitFor({ state: 'attached', timeout });
+  await waitEnabled(p, loc, sel, timeout);
+  // custom-styled checkboxes hide the real input, so the normal click times out: force it then
+  try { await loc.setChecked(on, { timeout: 2000 }); } catch { await loc.setChecked(on, { force: true }); }
+}, `check(${q(sel)}, ${on})`);
+export const select = (sel: string, value: string): Step => tag(async p => { await (await target(p, sel)).selectOption(value); }, `select(${q(sel)}, ${q(value)})`);
 export const wait = (sel: string): Step => tag(async p => { await p.locator(sel).first().waitFor(); }, `wait(${q(sel)})`);
 /** Run several steps in order. */
 export const seq = (...steps: Step[]): Step => tag(async p => { for (const s of steps) await s(p); },
@@ -181,6 +247,11 @@ export const clickUntil = (sel: string, until: string, tries = 10): Step => tag(
     await p.locator(sel).first().click(); await p.waitForTimeout(300);
   }
 }, `clickUntil(${q(sel)}, ${q(until)}, ${tries})`);
+/** Run `step`, then wait for the response whose URL contains `pattern` (or matches it, for a RegExp). For controls that fire a request. */
+export const afterResponse = (pattern: string | RegExp, step: Step): Step => tag(async p => {
+  const matches = (r: Response) => typeof pattern === 'string' ? r.url().includes(pattern) : pattern.test(r.url());
+  await Promise.all([p.waitForResponse(matches), step(p)]);
+}, `afterResponse(${q(String(pattern))}, ${step.src ?? step.toString()})`);
 
 /* ---------------------------------------------------------------- resolution */
 
@@ -188,7 +259,7 @@ export const clickUntil = (sel: string, until: string, tries = 10): Step => tag(
 export const fileOf = (id: string) => id.replace(/[\x00-\x2C\x2E-\x2F\x3A-\x40\x5B-\x60\x7B-\x7F]+/g, '-');
 export const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'x';
 
-export const CRAWL_FILE = path.join(ATLAS_ROOT, 'atlas.crawl.json');
+export const CRAWL_FILE = path.join(PROJECT_ROOT, 'atlas.crawl.json');
 
 /** Hand-written nodes + crawled pages whose URL no hand-written node already covers. */
 export async function loadNodes(config: AtlasConfig): Promise<UINode[]> {
@@ -254,7 +325,7 @@ export function fromCases(opts: {
   dir: string; harness: string; param?: string; ready?: string; parent?: string; group?: string;
   kind?: Kind; idPrefix?: string; components?: Component[];
 }): UINode[] {
-  const dir = path.resolve(ATLAS_ROOT, opts.dir);
+  const dir = path.resolve(PROJECT_ROOT, opts.dir);
   if (!fs.existsSync(dir)) throw new Error(`Golden Map Atlas: cases folder not found: ${dir}`);
   const param = opts.param ?? 'case';
   return fs.readdirSync(dir).filter(f => f.endsWith('.json')).sort().map(f => {

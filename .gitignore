@@ -22,3 +22,6 @@ goldens/
 Thumbs.db
 .vscode/
 .idea/
+ignore/
+.stabilize/
+atlas.discovered.txt

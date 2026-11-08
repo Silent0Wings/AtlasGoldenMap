@@ -12,7 +12,7 @@ import path from 'path';
 import http from 'http';
 import { spawn, spawnSync, exec } from 'child_process';
 import { fileURLToPath } from 'url';
-import { ROOT, DIRS, listRecords, approve, deny, paths } from './store.mjs';
+import { ROOT, DIRS, listRecords, approve, deny, paths, htmlDiff, readRunSummary } from './store.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REVIEW_HTML = path.join(HERE, 'review.html');
@@ -299,6 +299,17 @@ async function handle(req, res) {
     json(true);
     const body = await readJson(req);
     return sendJson(res, 202, startRun(body));
+  }
+  if (pathname === '/api/html-diff') {
+    if (method !== 'GET') throw httpError(405, 'method not allowed');
+    // same key rule as keysOf: the key must name a record
+    const key = url.searchParams.get('key');
+    if (!key || !listRecords().some(r => r.key === key)) throw httpError(404, 'unknown record key');
+    return sendJson(res, 200, htmlDiff(key));
+  }
+  if (pathname === '/api/summary') {
+    if (method !== 'GET') throw httpError(405, 'method not allowed');
+    return sendJson(res, 200, readRunSummary() ?? null);
   }
   throw httpError(404, 'not found');
 }

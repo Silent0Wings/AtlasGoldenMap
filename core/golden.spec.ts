@@ -4,16 +4,18 @@
  * (core/store.mjs) and writes shots/nodes/<variant>/<file>.json for build-dashboard.mjs.
  * Goldens are never written here: approve them in the review UI (`npm run review`).
  *
- *   npx playwright test       # capture; fails on any shot that is not match/volatile
+ *   npx playwright test       # capture; fails on any shot that is open (not match/volatile)
  *
- * App-specific behaviour comes only from ../atlas.config.ts.
+ * A shot is retaken until two takes match (config.stableShots). A visual failure is never
+ * retried: the retry fails at once with the first run's message. App-specific behaviour comes
+ * only from ../atlas.config.ts.
  */
 import { test, expect, type Page, type Locator } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
 import config from '../atlas.config';
-import { ATLAS_ROOT, loadNodes, chainOf, groupOf, fileOf, slug, type UINode, type Variant } from './atlas';
-import { evaluate, sha256, writeAtomic } from './store.mjs';
+import { ATLAS_ROOT, loadNodes, chainOf, groupOf, fileOf, slug, themeStorage, type UINode, type Variant } from './atlas';
+import { evaluate, sha256, writeAtomic, noteCollection, markVisualFailure, readVisualFailure, clearVisualFailure } from './store.mjs';
 
 type Info = Parameters<typeof evaluate>[0]['info'];
 type ReviewRecord = ReturnType<typeof evaluate>;
@@ -22,10 +24,12 @@ const OUT = path.join(ATLAS_ROOT, 'shots', 'nodes');
 const NODES = await loadNodes(config);
 const byId = new Map(NODES.map(n => [n.id, n]));
 const ROOT = config.root ?? NODES.find(n => !n.parent)?.id ?? NODES[0]?.id;
+const CANVAS = config.freezeCanvas ?? 'mask';   // 'mask' | 'hide' | 'keep'
 
 const FREEZE_CSS = `
   *,*::before,*::after{transition:none!important;animation:none!important;caret-color:transparent!important}
   ${config.freezeCss ?? ''}
+  ${CANVAS === 'hide' ? 'canvas{visibility:hidden!important}' : ''}
 `;
 const TEXT_SELECTORS = (config.textSelectors ?? ['h1', 'h2', 'h3', '[role=heading]']).join(', ');
 
@@ -59,7 +63,7 @@ async function prepare(page: Page, root: UINode, variant: Variant) {
     if (Object.keys(attrs).length) { if (document.documentElement) setAttrs(); else addEventListener('DOMContentLoaded', setAttrs); }
   }, {
     seedRandom: config.seedRandom !== false,
-    local: { ...(variant.localStorage ?? {}), ...(fx?.localStorage ?? {}) },
+    local: { ...themeStorage(config, variant), ...(variant.localStorage ?? {}), ...(fx?.localStorage ?? {}) },
     session: fx?.sessionStorage ?? {},
     attrs: variant.htmlAttributes ?? {},
   });
@@ -96,21 +100,40 @@ async function isVisible(loc: Locator) {
   return (await loc.count()) > 0 && (await loc.first().isVisible());
 }
 
+/** Visible canvases as rects relative to the shot: the document root for 'page', else the element. */
+async function canvasRects(page: Page, target: Locator | 'page') {
+  const ref = await (target === 'page' ? page.locator('html') : target).boundingBox() ?? { x: 0, y: 0 };
+  const rects = await page.evaluate(() => [...document.querySelectorAll('canvas')]
+    .filter(c => c.getClientRects().length > 0)
+    .map(c => { const r = c.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; })
+    .filter(r => r.width > 0 && r.height > 0));
+  return rects.map(r => ({ x: Math.round(r.x - ref.x), y: Math.round(r.y - ref.y), width: Math.round(r.width), height: Math.round(r.height) }));
+}
+
+/** readyAfter: 'networkidle' waits for the requests a step triggered, before the ready selector is read. */
+async function idle(page: Page, n: UINode) {
+  if (n.readyAfter === 'networkidle') await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+}
+
 /** Sorted-key JSON for config hashes; functions hash by their source (or step tag), so edited steps or prepare hooks count. */
 function stable(v: unknown): string {
   return JSON.stringify(v, (_k, x) => typeof x === 'function' ? (x.src ?? x.toString())
     : x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map(k => [k, x[k]])) : x);
 }
 
-/** Retake until two consecutive captures are byte-identical (at most 3 retakes): hides late paints and animation residue. */
-async function stableShot(take: () => Promise<Buffer>): Promise<Buffer> {
+/** Takes until two consecutive takes are byte-identical (config.stableShots). settled=false: the page never stopped changing. */
+async function stableShot(page: Page, take: () => Promise<Buffer>): Promise<{ png: Buffer; settled: boolean }> {
+  const cfg = config.stableShots;
+  if (cfg === false) return { png: await take(), settled: true };
+  const max = Math.max(2, cfg?.max ?? 5), interval = cfg?.interval ?? 150;
   let prev = await take();
-  for (let i = 0; i < 3; i++) {
+  for (let i = 1; i < max; i++) {
+    await page.waitForTimeout(interval);
     const next = await take();
-    if (next.equals(prev)) return next;
+    if (next.equals(prev)) return { png: next, settled: true };
     prev = next;
   }
-  return prev;
+  return { png: prev, settled: false };
 }
 
 const variantOf = (name: string) => config.variants.find(v => v.name === name)!;
@@ -119,55 +142,74 @@ for (const node of NODES) {
   test(node.id, async ({ page }) => {
     // collections shoot one image per element, ~2.5s each (two stable takes plus the comparison)
     test.setTimeout(node.timeout ?? (node.collection ? 60_000 + (node.collection.max ?? 100) * 5_000 : config.timeout ?? 60_000));
+    const variant = variantOf(test.info().project.name);
+    const base = fileOf(node.id);
+    // before any capture: a visual mismatch is never re-captured, so the retry fails with the first run's message
+    if (test.info().retry > 0) {
+      const prev = await readVisualFailure(variant.name, base);
+      if (prev) expect(prev.split('\n'), `visual check failed:\n${prev}`).toEqual([]);
+    } else await clearVisualFailure(variant.name, base);
+
+    const warn = (description: string) => test.info().annotations.push({ type: 'atlas-warning', description });
     const chain = chainOf(node, byId);
     const root = chain[0];
     const errors: string[] = [];
     page.on('pageerror', e => errors.push(e.message));
     page.on('dialog', d => d.dismiss().catch(() => {}));
 
-    const variant = variantOf(test.info().project.name);
     await prepare(page, root, variant);
     await page.goto(root.url!);
     for (let i = 1; i < chain.length; i++) {
+      await idle(page, chain[i - 1]);
       await page.locator(chain[i - 1].ready ?? 'body').first().waitFor();
       await chain[i].steps?.(page);
     }
+    await idle(page, node);
     await page.locator(node.ready ?? 'body').first().waitFor({ state: 'visible', timeout: 20_000 });
     await settle(page);
 
-    const masks = [...(config.mask ?? []), ...(node.mask ?? [])];
+    const canvasCount = (await canvasRects(page, 'page')).length;
+    if (canvasCount) warn(CANVAS === 'keep'
+      ? `${canvasCount} visible canvas element(s) kept as is (freezeCanvas "keep"): canvases can flicker between shots`
+      : `${canvasCount} visible canvas element(s), ${CANVAS === 'hide' ? 'hidden' : 'masked'} in every shot (freezeCanvas "${CANVAS}")`);
+
+    const masks = [...(config.mask ?? []), ...(node.mask ?? []), ...(CANVAS === 'mask' ? ['canvas'] : [])];
     const mask = masks.map(s => page.locator(s));
-    const base = fileOf(node.id);
     const group = groupOf(node, byId) ?? null;
     const fx = root.fixture ? config.fixtures?.[root.fixture] : undefined;
     // everything a shot depends on besides its pixels: any change here resets the review decision
     const shared = {
       node, ancestors: chain.slice(0, -1), fixture: fx ?? null, variant,
-      global: { mask: config.mask, freezeCss: config.freezeCss, clock: config.clock, seedRandom: config.seedRandom, settle: config.settle },
+      global: { mask: config.mask, freezeCss: config.freezeCss, freezeCanvas: config.freezeCanvas, theme: config.theme,
+        clock: config.clock, seedRandom: config.seedRandom, settle: config.settle },
     };
     const records: ReviewRecord[] = [];
 
-    // stable screenshot -> htmlHash (on a clone, masks emptied) -> configHash -> store.evaluate
+    // stable screenshot -> markup text (on a clone, masks emptied) -> canvas rects -> configHash -> store.evaluate
     const shoot = async (target: Locator | 'page', file: string, info: Info, extra: unknown, maskLocs: Locator[] = []) => {
       const opts = { animations: 'disabled' as const, caret: 'hide' as const, mask: maskLocs };
       const take = (): Promise<Buffer> => target === 'page'
         ? page.screenshot({ ...opts, fullPage: true })
         : target.screenshot(opts);
       // volatile shots are never compared, so a single take is enough
-      const actualPng = node.volatile ? await take() : await stableShot(take);
+      const shot = node.volatile ? { png: await take(), settled: true } : await stableShot(page, take);
       const el = target === 'page' ? page.locator('body') : target;
       // null when markup hashing is off, so the store treats it as disabled (not as the hash of '')
-      const htmlHash = config.review?.htmlHash === false ? null : sha256(await el.evaluate((src, { sels, attrs }) => {
+      const htmlText = config.review?.htmlHash === false ? null : await el.evaluate((src, { sels, attrs }) => {
         const w = document.createElement('div');
         w.append(src.cloneNode(true));
         w.querySelectorAll('script').forEach(s => s.remove());
         for (const sel of sels) w.querySelectorAll(sel).forEach(m => { m.innerHTML = ''; });
         w.querySelectorAll('*').forEach(e => { for (const a of attrs) e.removeAttribute(a); });
         return w.innerHTML.replace(/\s+/g, ' ');
-      }, { sels: masks, attrs: ['nonce', ...(config.review?.ignoreAttributes ?? [])] }));
+      }, { sels: masks, attrs: ['nonce', ...(config.review?.ignoreAttributes ?? [])] });
       return evaluate({
-        variant: variant.name, file, actualPng, htmlHash, configHash: sha256(stable({ shared, extra })),
+        variant: variant.name, file, actualPng: shot.png, settled: shot.settled,
+        htmlText, htmlHash: htmlText === null ? null : sha256(htmlText),
+        canvases: await canvasRects(page, target),
+        configHash: sha256(stable({ shared, extra })),
         volatile: !!node.volatile, info, threshold: config.review?.threshold, pixelThreshold: config.review?.pixelThreshold,
+        failOnHtml: config.review?.failOnHtml, ignoreAntialiasing: config.review?.ignoreAntialiasing,
       });
     };
 
@@ -213,6 +255,10 @@ for (const node of NODES) {
         items.push({ id, label: itemLabel, kind: col.kind ?? 'item', parent: node.id, group,
           tags, selector: `${col.selector} >> nth=${i}`, url: null, img: `${f}.png`, status: r.status, components: [] });
       }
+      // a collection whose size changes between runs usually means the page was not ready
+      const prev = await noteCollection(variant.name, base, items.length);
+      if (prev != null && prev !== items.length)
+        warn(`collection "${col.selector}" gave ${items.length} items, ${prev} last run: the page may not have been ready`);
     }
 
     const out = path.join(OUT, variant.name);
@@ -228,6 +274,8 @@ for (const node of NODES) {
     // written before the check so the dashboard still shows the statuses of a failing node
     const problems = records.filter(r => r.status !== 'match' && r.status !== 'volatile')
       .map(r => `${r.key}: ${r.status} (${r.reasons.join(', ')}) ${r.decision}`);
+    if (process.env.ATLAS_STABILIZE) return;   // no goldens there: every shot is new, and stabilize reads the records
+    if (problems.length) await markVisualFailure(variant.name, base, problems.join('\n'));
     expect(problems, `visual check failed:\n${problems.join('\n')}`).toEqual([]);
   });
 }
