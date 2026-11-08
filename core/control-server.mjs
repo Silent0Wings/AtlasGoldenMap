@@ -438,7 +438,7 @@ function startJob(p, action) {
   const child = spawn(process.execPath, [CLI, ...p.argv], {
     cwd: ROOT,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, FORCE_COLOR: '0' },
+    env: { ...process.env, FORCE_COLOR: '0', ATLAS_PANEL_URL: urlFor(PORT) },   // build-dashboard links back here
     windowsHide: true,
     detached: process.platform !== 'win32',   // own process group, so Stop takes the whole tree
   });
@@ -479,6 +479,12 @@ async function startReview() {
   const clear = () => { if (review.child === child) review.child = null; };
   child.on('exit', clear);
   child.on('error', clear);
+  // the page opens it right away: wait until it listens
+  for (let i = 0; i < 40 && review.child === child; i++) {
+    if (Array.isArray((await getJson(port, '/api/records', 300))?.records)) break;
+    await new Promise(r => setTimeout(r, 150));
+  }
+  if (review.child !== child) throw httpError(500, 'the review server stopped while starting');
   return { running: true, port, external: false };
 }
 

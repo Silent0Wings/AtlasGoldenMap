@@ -85,11 +85,49 @@ section.group > h2, section.panel > h2 { font-size: 12px; text-transform: upperc
 .err { color: var(--bad); font-size: 12px !important; overflow-wrap: anywhere; }
 .warn { color: var(--warn); }
 
-/* next step */
-.next { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px; }
-.next h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); margin: 0; }
-.next p { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
-.next .btn { justify-self: start; }
+/* pipeline */
+.pipe-box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); display: grid; gap: 12px; min-width: 0; }
+.pipe-box h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0; font-weight: 600; }
+.pipe { list-style: none; margin: 0; padding: 0; display: flex; gap: 26px; min-width: 0; }
+.pipe li { position: relative; flex: 1 1 0; min-width: 0; display: flex; }
+.pipe li:not(:last-child)::after { content: ""; position: absolute; top: 50%; right: -23px; width: 20px; height: 12px; margin-top: -6px; background: var(--edge); clip-path: polygon(0 40%, 62% 40%, 62% 0, 100% 50%, 62% 100%, 62% 60%, 0 60%); }
+.pipe li.done:not(:last-child)::after, .pipe li.skip:not(:last-child)::after { background: var(--ok); }
+.pipe li.running:not(:last-child)::after { background: var(--accent); animation: pipe-pulse 1.1s ease-in-out infinite; }
+.node { width: 100%; min-width: 0; min-height: 118px; display: grid; justify-items: center; align-content: start; gap: 5px; padding: 12px 6px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--panel); cursor: pointer; text-align: center; transition: transform .12s, border-color .12s; }
+.node:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--accent); }
+.node:disabled { cursor: default; }
+.node:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.glyph { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid var(--edge); color: var(--muted); font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+.n-title { font-weight: 600; font-size: 13px; overflow-wrap: anywhere; }
+.n-note { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+li.done .node, li.skip .node { border-color: var(--ok); }
+li.done .glyph { background: var(--ok); border-color: var(--ok); color: var(--on-st); }
+li.skip .glyph { border-color: var(--ok); color: var(--ok); }
+li.now .node { border-color: var(--accent); background: var(--accent-soft); }
+li.now .glyph { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+li.now .n-note { color: var(--text); }
+li.attention .node { border-color: var(--warn); }
+li.attention .glyph { background: var(--warn); border-color: var(--warn); color: var(--on-st); }
+li.attention .n-note { color: var(--warn); }
+li.failed .node { border-color: var(--bad); }
+li.failed .glyph { background: var(--bad); border-color: var(--bad); color: var(--on-st); }
+li.failed .n-note { color: var(--bad); }
+li.running .node { border-color: var(--accent); background: var(--accent-soft); }
+li.running .glyph { border-color: var(--accent); border-top-color: transparent; color: transparent; animation: pipe-spin .8s linear infinite; }
+li.todo .node:disabled { opacity: .55; }
+@keyframes pipe-spin { to { transform: rotate(360deg); } }
+@keyframes pipe-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .node { transition: none; } li.running .glyph, .pipe li.running::after { animation: none; } }
+.pipe-next { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+.pipe-filter { margin: 0; font-size: 12px; color: var(--warn); overflow-wrap: anywhere; }
+.more > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); padding: 4px 0; }
+.more-body { display: grid; gap: 18px; margin-top: 10px; }
+@media (max-width: 899px) {
+  .pipe { flex-direction: column; gap: 22px; }
+  .pipe li:not(:last-child)::after { top: auto; right: auto; bottom: -21px; left: 50%; margin: 0 0 0 -10px; transform: rotate(90deg); }
+  .node { min-height: 0; grid-template-columns: 32px minmax(0, 1fr); justify-items: start; text-align: left; column-gap: 12px; row-gap: 0; padding: 10px 12px; }
+  .glyph { grid-row: span 2; }
+}
 #msg { margin: 0; background: var(--panel); border: 1px solid var(--bad); border-left-width: 3px; border-radius: 8px; padding: 8px 12px; color: var(--bad); font-size: 13px; overflow-wrap: anywhere; }
 #conn { margin: 0; background: var(--panel); border: 1px solid var(--warn); border-radius: 8px; padding: 8px 12px; color: var(--warn); font-size: 13px; }
 
@@ -169,14 +207,38 @@ dialog label { font-size: 13px; }
 <main>
   <p id="conn" role="status" hidden>Lost contact with the control panel. Keep this tab open. If it stays this way, double-click script\panel.bat again.</p>
 
-  <section class="next" aria-labelledby="nextH">
-    <h2 id="nextH">Next step</h2>
-    <p id="nextText">Checking the panel…</p>
-    <div id="nextBtn"></div>
+  <section class="pipe-box" aria-labelledby="pipeH">
+    <h2 id="pipeH">Pipeline</h2>
+    <ol class="pipe" id="pipe"></ol>
+    <p id="nextText" class="pipe-next" role="status">Checking the panel…</p>
+    <p id="pipeFilter" class="pipe-filter" hidden></p>
   </section>
 
   <p id="msg" role="alert" hidden></p>
 
+  <section class="out" id="out" aria-labelledby="gOut" hidden>
+    <div class="out-head">
+      <h2 id="gOut">Live output</h2>
+      <span class="pill" id="jobStatus"></span>
+      <span class="jl" id="jobLabel"></span>
+      <span class="jt" id="jobTime"></span>
+      <div class="btns">
+        <button class="btn bad" type="button" data-act="stop" title="Stops the running job and everything it started.">Stop the job</button>
+        <button class="btn" type="button" data-act="copy">Copy output</button>
+      </div>
+    </div>
+    <p class="note" id="outNote" hidden>Older output was dropped to keep this page light. The log shows the latest part.</p>
+    <pre class="log" id="log" tabindex="0" aria-label="Job output"></pre>
+  </section>
+
+  <section class="panel" id="results" aria-labelledby="gRes">
+    <h2 id="gRes">Results</h2>
+    <div id="resBody"></div>
+  </section>
+
+  <details class="more">
+    <summary>All steps and options</summary>
+    <div class="more-body">
   <section class="group" aria-labelledby="gSetup">
     <h2 id="gSetup">Setup</h2>
     <div class="cards">
@@ -322,26 +384,8 @@ dialog label { font-size: 13px; }
       </article>
     </div>
   </section>
-
-  <section class="panel" id="results" aria-labelledby="gRes">
-    <h2 id="gRes">Results</h2>
-    <div id="resBody"></div>
-  </section>
-
-  <section class="out" id="out" aria-labelledby="gOut" hidden>
-    <div class="out-head">
-      <h2 id="gOut">Live output</h2>
-      <span class="pill" id="jobStatus"></span>
-      <span class="jl" id="jobLabel"></span>
-      <span class="jt" id="jobTime"></span>
-      <div class="btns">
-        <button class="btn bad" type="button" data-act="stop" title="Stops the running job and everything it started.">Stop the job</button>
-        <button class="btn" type="button" data-act="copy">Copy output</button>
-      </div>
     </div>
-    <p class="note" id="outNote" hidden>Older output was dropped to keep this page light. The log shows the latest part.</p>
-    <pre class="log" id="log" tabindex="0" aria-label="Job output"></pre>
-  </section>
+  </details>
 </main>
 
 <dialog id="cfgDlg" aria-labelledby="cfgH">
@@ -414,7 +458,7 @@ const FORCE_TEXT = 'Force: approve even if the last run had failures or shots ne
 const JOB_ACTS = new Set(['setup', 'deps', 'config', 'capture', 'check', 'stabilize', 'atlas', 'approve-new', 'approve-all', 'build', 'open-dash', 'report', 'crawl', 'discover', 'clean']);
 const S = {
   state: null, connOk: null, job: null, jobId: null, offset: 0, out: '', truncated: false,
-  posting: false, gen: 0, loopT: 0, urlDirty: false, variantSig: '', nextKey: '',
+  posting: false, gen: 0, loopT: 0, urlDirty: false, variantSig: '',
 };
 
 // element builder: text always goes in as a text node, never as HTML
@@ -509,8 +553,76 @@ function nextStep(s) {
   const unstable = s.stabilize?.unstable ?? 0;
   if (unstable > 0) return { text: `${plural(unstable, 'screenshot')} never settled, so they cannot be approved safely. The Results section below explains how to fix it.`, act: 'see-results', label: 'See stabilize result' };
   if ((rec.new ?? 0) > 0 && !s.goldens) return { text: `Nothing is approved yet. Approve the ${rec.new} new screenshot(s) to make them the starting goldens.`, act: 'approve-new', label: 'Approve new screenshots' };
-  if ((rec.changed ?? 0) + (rec.stale ?? 0) + (rec.unsettled ?? 0) > 0) return { text: 'Some screenshots differ from their goldens or need a look. Open review to compare each one, then approve or deny it.', act: 'review-open', label: 'Open review' };
+  if (openCount() > 0) return { text: 'Some screenshots differ from their goldens or need a look. Open review to compare each one, then approve or deny it.', act: 'review-open', label: 'Open review' };
   return { text: 'Everything matches the approved goldens. Press Check to confirm again.', act: 'check', label: 'Check' };
+}
+
+/* ---------- pipeline ---------- */
+const STEPS = [
+  { id: 'setup', title: 'Set up', jobs: ['setup', 'deps'], hint: 'Installs what the atlas needs.' },
+  { id: 'configure', title: 'Configure', jobs: ['config'], hint: 'Opens the form that describes your app.' },
+  { id: 'capture', title: 'Capture', jobs: ['capture'], hint: 'Takes a screenshot of every screen. Approves nothing.' },
+  { id: 'stabilize', title: 'Stabilize', jobs: ['stabilize'], hint: 'Takes the screenshots again to find the ones that keep changing. Approves nothing.' },
+  { id: 'approve', title: 'Approve', jobs: ['approve-new', 'approve-all'], hint: 'Makes screenshots the approved goldens. You are asked first, or you compare them one by one.' },
+  { id: 'check', title: 'Check', jobs: ['check'], hint: 'Compares the app with the goldens. Changes nothing.' },
+  { id: 'atlas', title: 'Atlas', jobs: ['atlas', 'build', 'open'], hint: 'Captures everything, builds the dashboard and opens it.' },
+];
+const GLYPHS = { done: '✓', skip: '–', attention: '!', failed: '×' };
+
+// what each step can do and whether it is finished: { act, done, skip, attention, reason, note }
+function stepInfo(s) {
+  const rec = s.records ?? {}, open = openCount(), total = rec.total ?? 0;
+  const unstable = s.stabilize?.unstable ?? 0;
+  const broken = (s.summary?.failures ?? []).filter(f => f.class !== 'visual').length;
+  return {
+    setup: { act: 'setup', done: s.depsInstalled, note: s.depsInstalled ? 'Installed' : 'Not installed' },
+    configure: { act: 'configure', done: s.configExists, note: s.configTitle ?? 'No config yet' },
+    capture: { act: 'capture', done: total > 0, note: total ? plural(total, 'shot') : 'No shots yet' },
+    stabilize: { act: 'stabilize', attention: unstable > 0, done: !!s.stabilize && !unstable, skip: !s.stabilize && s.goldens > 0,
+      note: unstable ? `${unstable} keep changing` : s.stabilize ? 'Steady' : s.goldens ? 'Optional now' : 'Not run' },
+    approve: open
+      ? { act: !s.goldens && rec.new ? 'approve-new' : 'review-open', note: `${open} to approve` }
+      : s.goldens ? { act: 'review-open', done: true, note: plural(s.goldens, 'golden') }
+        : { reason: 'Capture first: there is nothing to approve yet.', note: 'Nothing yet' },
+    check: { act: 'check', reason: s.goldens ? '' : 'Approve first: there are no goldens to compare with.',
+      attention: broken > 0, done: s.summary?.status === 'passed' && !open,
+      note: broken ? `${broken} could not run` : s.summary?.status === 'passed' && !open ? 'Passing' : 'Not confirmed' },
+    atlas: { act: 'atlas', done: s.dashboardExists, note: s.dashboardExists ? 'Built' : 'Not built' },
+  };
+}
+
+function renderPipeline() {
+  const s = S.state, box = $('pipe');
+  if (!box.children.length) box.append(...STEPS.map(st => h('li', {}, h('button', { class: 'node', type: 'button' },
+    h('span', { class: 'glyph' }), h('span', { class: 'n-title', text: st.title }), h('span', { class: 'n-note' })))));
+  const info = s ? stepInfo(s) : {};
+  const job = S.job ?? s?.job;
+  const busy = runningNow();
+  let current = false;   // the first step that is not finished is the one to do now
+  STEPS.forEach((st, i) => {
+    const li = box.children[i], b = li.firstChild, x = info[st.id] ?? { note: 'Checking…' };
+    let state = x.done ? 'done' : x.skip ? 'skip' : x.attention ? 'attention' : 'todo';
+    if (x.attention) { state = 'attention'; current = true; }
+    else if (state === 'todo' && !current && s) { state = 'now'; current = true; }
+    let note = x.note;
+    const mine = job && st.jobs.includes(job.action);
+    if (mine && job.status === 'running') { state = 'running'; note = 'Running…'; }
+    else if (mine && job.status === 'failed' && state !== 'attention') { state = 'failed'; note = 'Last run failed'; }
+    li.className = state;
+    if (x.act) b.dataset.act = x.act; else delete b.dataset.act;
+    const reason = !s ? 'Checking the panel…'
+      : x.reason || (busy && x.act !== 'review-open' ? 'A job is running. Wait for it to finish, or stop it under Live output.' : x.act ? gate(x.act) : '');
+    b.disabled = !x.act || !!reason || S.posting;
+    b.title = reason || st.hint;
+    if (state === 'now' || state === 'attention') b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current');
+    b.setAttribute('aria-label', `Step ${i + 1}, ${st.title}: ${note}`);
+    b.children[0].textContent = GLYPHS[state] ?? String(i + 1);
+    b.children[2].textContent = note;
+  });
+
+  const grep = $('grep').value.trim(), variant = $('variant').value;
+  $('pipeFilter').hidden = !grep && !variant;
+  $('pipeFilter').textContent = `Filter is on: ${[grep && `only "${grep}"`, variant && `only ${variant}`].filter(Boolean).join(', ')}. Change it under All steps and options.`;
 }
 
 /* ---------- rendering ---------- */
@@ -533,13 +645,6 @@ function renderState() {
 
   const next = s ? nextStep(s) : { text: 'Checking the panel…' };
   $('nextText').textContent = next.text;
-  const key = next.act ? `${next.act}|${next.label}` : '';
-  if (key !== S.nextKey) {
-    S.nextKey = key;
-    $('nextBtn').replaceChildren();
-    if (next.act) $('nextBtn').append(h('button', { class: 'btn primary', type: 'button', 'data-act': next.act }, next.label));
-  }
-
   const variants = s?.variants ?? [];
   const sig = variants.join('\u0001');
   if (sig !== S.variantSig) {
@@ -571,6 +676,7 @@ function renderState() {
     const need = b.closest('.card')?.querySelector('.need');
     if (need) { need.textContent = reason; need.hidden = !reason; }
   }
+  renderPipeline();
 }
 
 function renderResults() {
@@ -741,13 +847,24 @@ function scoped(btn, action, label, build = scope) {
   return jobFrom(btn, action, label, build());
 }
 
+// the tab is opened inside the click: browsers block a new tab once the handler has awaited
+async function openReview(b) {
+  const tab = window.open('', '_blank');
+  const rv = S.state?.review?.running ? S.state.review : await reviewSet(b, true);
+  if (!rv?.running) { tab?.close(); return; }
+  const url = `http://127.0.0.1:${Number(rv.port) || 8097}/`;
+  if (tab) { tab.opener = null; tab.location = url; toast('Review opened in a new tab.'); }
+  else toast(`Your browser blocked the new tab. Open ${url} yourself.`, 9000);
+}
+
 async function reviewSet(btn, start) {
   clearErr(btn);
   S.posting = true;
   renderState();
   try {
-    await api('/api/review', { method: 'POST', body: JSON.stringify({ start }) });
+    const r = await api('/api/review', { method: 'POST', body: JSON.stringify({ start }) });
     toast(start ? 'Review started. Use the review page link to open it.' : 'Review stopped.');
+    return r.review;
   } catch (e) {
     inlineErr(btn, e.message);
   } finally {
@@ -965,7 +1082,7 @@ const ACT = {
   'approve-new': approveNew,
   'approve-all': approveAll,
   'review-start': b => reviewSet(b, true),
-  'review-open': b => reviewSet(b, true),
+  'review-open': openReview,
   'review-stop': b => reviewSet(b, false),
   build: b => jobFrom(b, 'build', 'Rebuild dashboard'),
   'open-dash': b => jobFrom(b, 'open', 'Open dashboard'),
@@ -986,6 +1103,7 @@ document.addEventListener('click', e => {
   if (fn) fn(b);
 });
 document.querySelectorAll('input[name="kind"]').forEach(r => r.addEventListener('change', syncKind));
+for (const id of ['grep', 'variant']) $(id).addEventListener('input', renderPipeline);
 $('cfgUrl').addEventListener('input', () => { S.urlDirty = true; });
 $('cfgDark').addEventListener('change', syncTheme);
 $('cfgCancel').addEventListener('click', () => $('cfgDlg').close());
