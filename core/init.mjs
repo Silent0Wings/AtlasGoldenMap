@@ -128,9 +128,14 @@ export async function runInit(argv, { root = DEFAULT_ROOT, log = console.log } =
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   if (exists) {
     let dest = path.join(root, isDemo ? 'atlas.config.demo.ts' : `atlas.config.backup-${stamp}.ts`);
-    if (isDemo && fs.existsSync(dest)) dest = path.join(root, `atlas.config.demo-${stamp}.ts`);
-    fs.renameSync(file, dest);
-    log(`Moved atlas.config.ts to ${path.basename(dest)}`);
+    if (isDemo && fs.existsSync(dest) && fs.readFileSync(dest, 'utf8') === fs.readFileSync(file, 'utf8')) {
+      fs.rmSync(file);   // a plain copy of the shipped demo config needs no second backup
+      log('Removed atlas.config.ts (a copy of atlas.config.demo.ts)');
+    } else {
+      if (isDemo && fs.existsSync(dest)) dest = path.join(root, `atlas.config.demo-${stamp}.ts`);
+      fs.renameSync(file, dest);
+      log(`Moved atlas.config.ts to ${path.basename(dest)}`);
+    }
   }
 
   fs.writeFileSync(file, src);

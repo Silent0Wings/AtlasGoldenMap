@@ -22,6 +22,7 @@ Related pages: [http-api.md](http-api.md) for the endpoints that serve these fil
 | `.stabilize/` | generated scratch | ignored | Removed unless `stabilize --keep`. |
 | `atlas.crawl.json` | generated | ignored | Output of `crawl`. |
 | `atlas.discovered.txt` | generated | ignored | Output of `discover`. Never read by the atlas. |
+| `atlas.config.demo.ts` | committed | tracked | The bundled demo's map. Copy it over `atlas.config.ts` to try the demo. |
 | `atlas.config.backup-*.ts` | generated | ignored | Backup of the config when it is replaced. |
 | `*.tmp` | temporary | ignored | Left behind only if an atomic write is interrupted. |
 

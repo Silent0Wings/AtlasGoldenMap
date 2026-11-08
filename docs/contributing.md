@@ -96,15 +96,9 @@ Run the checks that match what you changed. They are listed from cheapest to mos
 
 ### Test on a copy
 
-Work on a copy of the repository, outside the repository, because `capture` writes into the folder and `init` and `clean --goldens` delete goldens. The root `atlas.config.ts` is not the demo config at the moment, so find the demo config first. It is the one whose `server` is `examples/demo-site`:
-
-```sh
-grep -l "examples/demo-site" atlas.config*.ts
-```
-
-Then:
+Work on a copy of the repository, outside the repository, because `capture` writes into the folder and `init` and `clean --goldens` delete goldens. The demo's config ships as `atlas.config.demo.ts`.
 
 1. **Copy the folder without `node_modules`.** Give the copy a link to the original `node_modules`: a junction made with `mklink /J` on Windows, or a symbolic link elsewhere.
-2. **Put the demo config in the copy as `atlas.config.ts`.** Run the copy's `npm run capture`, which runs `stabilize` on the first capture. Then `npm run stabilize -- --runs 3`, which must end with `[OK]`. Then `npm run approve-new`.
+2. **In the copy, copy `atlas.config.demo.ts` over `atlas.config.ts`.** Run the copy's `npm run capture`, which runs `stabilize` on the first capture. Then `npm run stabilize -- --runs 3`, which must end with `[OK]`. Then `npm run approve-new`.
 3. **Check it three times.** Run `npm run check` three times in a row. Each run must exit 0, and no shot may be `stale` or `changed`. `AGENTS.md` requires three passes before a baseline is trusted, and a `stale` shot right after an approval means a hash is changing between runs.
 4. **Remove the link before the copy.** Delete the `node_modules` link without recursion (`rmdir` without `/S` on Windows, or `rm` without `-r` on a symbolic link), then delete the copy. A recursive delete could follow the link into the original packages.

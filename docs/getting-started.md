@@ -29,22 +29,14 @@ Two more parts appear when they are needed. **Live output** shows what a running
 
 ## 3. Run the pipeline on the bundled demo
 
-Use the form to point Atlas at the demo. Do not rely on an `atlas.config.ts` that is already in the folder. The one in your copy may not be the demo's.
+The demo's map ships as `atlas.config.demo.ts`. To use it, put a copy in place of `atlas.config.ts`.
 
 1. **Set up.** If the first box is not finished, press it. It installs what Atlas needs. The first time, this takes a few minutes. When it is done, the box shows a check mark and says Installed.
-2. **Configure.** Press the **Configure** box and fill in the form:
-   - App name: `Demo Shop`
-   - How is the app served: **Static folder**
-   - Static folder: `examples/demo-site`
-   - Port: leave `8091`, or pick any free port
-   - Leave **The app has a dark mode** and **Find pages by following links** checked.
-
-   Press **Save config**. The **Demo** chip appears in the top bar.
-3. **Crawl links.** This button is not one of the seven boxes. Open **All steps and options**, find **Crawl links** under Explore, and press it. The crawler follows links from the start page and writes the list of pages it finds. Run it before Capture, because Atlas reads that list when it loads the screens.
-4. **Capture.** Press the **Capture** box. It takes a screenshot of every screen in every variant. Nothing is approved yet. Because this is the first capture, it also runs Stabilize, which is the box after Capture. Stabilize takes the screenshots again to find any that keep changing. If it reports some, the Results section says how to deal with them.
-5. **Approve.** When Capture is done, the Approve box says how many screenshots are waiting. Press it, read the confirmation, and press **Approve new**. The first screenshots become the goldens (see below).
-6. **Check.** Press **Check**. It compares the app with the goldens again. A passing check shows a check mark.
-7. **Atlas.** Press **Build atlas and open**. The dashboard opens in your browser. That is the graph.
+2. **Put the demo in place.** In the Atlas folder, if `atlas.config.ts` is your own, save a copy of it under another name. Then copy `atlas.config.demo.ts` and name the copy `atlas.config.ts`, replacing the old one. The top bar shows the name Demo Shop and a **Demo** chip. If the **Goldens** chip is above 0 and those goldens came from another app, open **All steps and options** and use **Clean** with **Also delete goldens** first.
+3. **Capture.** Press the **Capture** box. It takes a screenshot of every screen in every variant. Nothing is approved yet. Because this is the first capture, it also runs Stabilize, which is the box after Capture. Stabilize takes the screenshots again to find any that keep changing. If it reports some, the Results section says how to deal with them.
+4. **Approve.** When Capture is done, the Approve box says how many screenshots are waiting. Press it, read the confirmation, and press **Approve new**. The first screenshots become the goldens (see below).
+5. **Check.** Press **Check**. It compares the app with the goldens again. A passing check shows a check mark.
+6. **Atlas.** Press **Build atlas and open**. The dashboard opens in your browser. That is the graph.
 
 ## 4. The pipeline in brief
 

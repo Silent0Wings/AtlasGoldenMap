@@ -264,12 +264,12 @@ The report is `review/stabilize.json`. The last line is `[OK] N shots stable acr
 | `goldens/denied.json` | Denied captures, with notes. Commit it |
 | `review/` | Generated: `actual/`, `diff/`, `records/`, `run-summary.json`, `stabilize.json`, `.capture.lock` |
 | `shots/`, `report/`, `test-results/`, `dashboard.html`, `.stabilize/` | Generated |
-| `examples/demo-site/` | The bundled demo, which the root config maps |
+| `examples/demo-site/` | The bundled demo, which `atlas.config.demo.ts` maps |
 | `examples/quiz-arch/` | A real-world reference config. It assumes the atlas folder sits at a fixed place inside its app, so its paths must be adjusted for your layout |
 
 ## The bundled demo
 
-The bundled demo is a small static site, and the root `atlas.config.ts` maps it. To see the flow without a real app, run `npm run capture` against it. Ask the person before any approval, even on the demo.
+The bundled demo is a small static site, and `atlas.config.demo.ts` maps it. To see the flow without a real app, copy that file over `atlas.config.ts` (ask first if a real config is in place), then run `npm run capture`. Ask the person before any approval, even on the demo.
 
 ## The person's tools
 

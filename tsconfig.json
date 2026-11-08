@@ -9,5 +9,5 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["node"]
   },
-  "include": ["atlas.config.ts", "playwright.config.ts", "core/**/*.ts", "examples/**/*.ts"]
+  "include": ["atlas.config.ts", "atlas.config.demo.ts", "playwright.config.ts", "core/**/*.ts", "examples/**/*.ts"]
 }

@@ -8,6 +8,8 @@ Golden Map Atlas works with any web app. Playwright drives the running app and c
 
 ## Quick start
 
+To try the bundled demo first, copy `atlas.config.demo.ts` over `atlas.config.ts`. To map your own app, see [Using it in your own project](#using-it-in-your-own-project).
+
 **Windows**
 
 ```bat
@@ -254,9 +256,10 @@ Optional discovery: `crawl.spec.ts` writes `atlas.crawl.json`. `loadNodes()` in 
 ```
 <atlas folder>/
 ├── atlas.config.ts          your app's map (the only file you edit)
+├── atlas.config.demo.ts     the bundled demo's map: copy it over atlas.config.ts to try it
 ├── core/                    generic engine, do not edit per project
 ├── examples/
-│   ├── demo-site/           a small static site used by the root config
+│   ├── demo-site/           a small static site, mapped by atlas.config.demo.ts
 │   └── quiz-arch/           a real-world port of the config
 ├── assets/
 ├── package.json · tsconfig.json · playwright.config.ts
@@ -771,9 +774,9 @@ Zoom is either fit-to-window or 100 %.
 
 ## Examples
 
-### `examples/demo-site` (root `atlas.config.ts`)
+### `examples/demo-site` (`atlas.config.demo.ts`)
 
-A small static shop with a home page, a product grid, a new-product dialog, a filter, a settings page with tabs and a save confirmation. The root `atlas.config.ts` maps it, with three variants (light, dark, mobile), one collection of product cards, and a `cases` group. The eight formatter cases are isolated inputs rendered by `harness.html` (see [Cases](#cases-isolated-inputs)).
+A small static shop with a home page, a product grid, a new-product dialog, a filter, a settings page with tabs and a save confirmation. `atlas.config.demo.ts` maps it, with three variants (light, dark, mobile), one collection of product cards, and a `cases` group. The eight formatter cases are isolated inputs rendered by `harness.html` (see [Cases](#cases-isolated-inputs)).
 
 ```bat
 script\run.bat capture
