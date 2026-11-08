@@ -22,6 +22,7 @@ const CLI = path.join(ROOT, 'core', 'cli.mjs');
 const REVIEW_SERVER = path.join(ROOT, 'core', 'review-server.mjs');
 const PAGE = path.join(HERE, 'control.html');
 const ICON = path.join(ROOT, 'assets', 'icon_transparent.png');
+const TOOLTIP = path.join(HERE, 'tooltip.js');
 const CONFIG = path.join(ROOT, 'atlas.config.ts');
 const GOLDENS = path.join(ROOT, 'goldens');
 const META = path.join(ROOT, 'shots', 'meta.json');
@@ -527,6 +528,10 @@ async function handle(req, res) {
   if (pathname === '/icon.png') {
     only('GET');
     return sendFile(res, ICON, 'image/png', 'not found');
+  }
+  if (pathname === '/tooltip.js') {
+    only('GET');
+    return sendFile(res, TOOLTIP, 'text/javascript; charset=utf-8', 'not found');
   }
   if (pathname === '/api/state') {
     only('GET');

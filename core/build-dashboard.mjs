@@ -130,10 +130,13 @@ const libs = [
 
 const json = JSON.stringify(data).replace(/</g, '\\u003c');
 const escHtml = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// tooltip.js is inlined (not linked) so dashboard.html stays one offline file
+const tooltipSource = fs.readFileSync(path.join(HERE, 'tooltip.js'), 'utf8').replace(/<\/script/gi, '<\\/script');
 const html = fs.readFileSync(path.join(HERE, 'template.html'), 'utf8')
   .replaceAll('__TITLE__', () => escHtml(meta.title ?? 'Golden Map Atlas'))
   .replaceAll('__ICON__', () => icon)
   .replaceAll('__PANEL_URL__', () => escHtml(process.env.ATLAS_PANEL_URL ?? 'http://127.0.0.1:8099/'))
+  .replaceAll('__TOOLTIP__', () => tooltipSource)
   .replace('/*__LIBS__*/', () => libs)
   .replace('__DATA__', () => json);
 fs.writeFileSync(OUT_FILE, html);

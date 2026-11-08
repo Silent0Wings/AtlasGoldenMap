@@ -200,7 +200,7 @@ dialog label { font-size: 13px; }
   <div class="app" id="appTitle">Checking…</div>
   <div class="chips" id="chips" aria-label="Status"></div>
   <div class="header-end">
-    <button class="btn" type="button" data-act="shutdown" title="Stops the control panel. Closing this tab does not do that.">Shut down</button>
+    <button class="btn" type="button" data-act="shutdown" data-tip="Stops the control panel. Closing this tab does not do that.">Shut down</button>
   </div>
 </header>
 
@@ -219,11 +219,11 @@ dialog label { font-size: 13px; }
   <section class="out" id="out" aria-labelledby="gOut" hidden>
     <div class="out-head">
       <h2 id="gOut">Live output</h2>
-      <span class="pill" id="jobStatus"></span>
+      <span class="pill" id="jobStatus" data-tip="Shows whether the job is running, finished, failed or was stopped."></span>
       <span class="jl" id="jobLabel"></span>
       <span class="jt" id="jobTime"></span>
       <div class="btns">
-        <button class="btn bad" type="button" data-act="stop" title="Stops the running job and everything it started.">Stop the job</button>
+        <button class="btn bad" type="button" data-act="stop" data-tip="Stops the running job and everything it started.">Stop the job</button>
         <button class="btn" type="button" data-act="copy">Copy output</button>
       </div>
     </div>
@@ -246,19 +246,19 @@ dialog label { font-size: 13px; }
         <h3>Set up</h3>
         <p>Installs what the atlas needs to run, including the test browser. Downloads can take a few minutes. If the app is not configured yet, it stops after this step and you continue with Configure.</p>
         <p class="need" hidden></p><p class="err" role="alert" hidden></p>
-        <button class="btn primary" type="button" data-act="setup">Set up</button>
+        <button class="btn primary" type="button" data-act="setup" data-tip="Installs what the atlas needs, including the test browser. Can take a few minutes.">Set up</button>
       </article>
       <article class="card">
         <h3>Install dependencies</h3>
         <p>Installs the packages and the test browser if they are missing. Safe to run again. Does not touch your configuration.</p>
         <p class="need" hidden></p><p class="err" role="alert" hidden></p>
-        <button class="btn" type="button" data-act="deps">Install dependencies</button>
+        <button class="btn" type="button" data-act="deps" data-tip="Installs missing packages and the test browser only. Your configuration is not changed.">Install dependencies</button>
       </article>
       <article class="card">
         <h3>Configure</h3>
         <p>Opens a short form with the same questions as the terminal setup: app name, how the app is run, its address, dark mode and phone view. Saves the atlas config file. If one exists, it is backed up before it is replaced.</p>
         <p class="need" hidden></p><p class="err" role="alert" hidden></p>
-        <button class="btn" type="button" data-act="configure">Configure</button>
+        <button class="btn" type="button" data-act="configure" data-tip="Opens the form that describes your app and saves the config file. An old config is backed up first.">Configure</button>
       </article>
     </div>
   </section>
@@ -266,11 +266,11 @@ dialog label { font-size: 13px; }
   <section class="group" aria-labelledby="gCap">
     <h2 id="gCap">Capture and verify</h2>
     <div class="shared">
-      <label class="stack">Filter by name
+      <label class="stack" data-tip="Limits the next run to screenshots whose name contains this text. Leave empty for all.">Filter by name
         <input id="grep" class="field" type="text" maxlength="200" autocomplete="off" placeholder="All screenshots">
         <small>Only screenshots whose name contains this text. Leave empty for all. Used by the four cards below.</small>
       </label>
-      <label class="stack">Variant
+      <label class="stack" data-tip="Limits the next run to one way of viewing every screen, such as light or dark. Leave on All variants for everything.">Variant
         <select id="variant" class="field"><option value="">All variants</option></select>
         <small>For example light or dark. Leave on All variants for everything.</small>
       </label>
@@ -279,32 +279,32 @@ dialog label { font-size: 13px; }
       <article class="card">
         <h3>Capture</h3>
         <p>Takes new screenshots of the app and compares them with the goldens. The first capture also runs Stabilize, so unsettled screenshots show up early. Approves nothing.</p>
-        <label class="check"><input id="noStab" type="checkbox"> Skip the automatic Stabilize step on the first capture</label>
+        <label class="check" data-tip="Skips the automatic Stabilize step that normally runs on the first capture."><input id="noStab" type="checkbox"> Skip the automatic Stabilize step on the first capture</label>
         <p class="need" hidden></p><p class="err" role="alert" hidden></p>
-        <button class="btn" type="button" data-act="capture">Capture</button>
+        <button class="btn" type="button" data-act="capture" data-tip="Takes new screenshots and compares them with the goldens. Approves nothing.">Capture</button>
       </article>
       <article class="card">
         <h3>Check</h3>
         <p>Compares the app with the approved goldens and lists any differences. Approves nothing and changes no goldens.</p>
         <p class="need" hidden></p><p class="err" role="alert" hidden></p>
-        <button class="btn" type="button" data-act="check">Check</button>
+        <button class="btn" type="button" data-act="check" data-tip="Compares the app with the approved goldens and lists differences. Changes nothing.">Check</button>
       </article>
       <article class="card">
         <h3>Stabilize</h3>
         <p>Takes the screenshots several more times and lists the ones that do not come out the same twice. Takes a while. Approves nothing.</p>
-        <label class="stack">Number of extra runs (2 to 10)
+        <label class="stack" data-tip="How many extra times each screenshot is taken to find the ones that keep changing. More runs find more but take longer.">Number of extra runs (2 to 10)
           <input id="stRuns" class="field" type="number" min="2" max="10" step="1" value="3">
         </label>
-        <label class="check"><input id="stKeep" type="checkbox"> Keep the extra runs' screenshots so you can look at them</label>
-        <label class="check"><input id="stAll" type="checkbox"> Show every screenshot in the result, not only the ones that differ</label>
+        <label class="check" data-tip="Saves the screenshots from the extra runs so you can look at them yourself."><input id="stKeep" type="checkbox"> Keep the extra runs' screenshots so you can look at them</label>
+        <label class="check" data-tip="Lists every screenshot in the Stabilize result, not only the ones that do not come out the same twice."><input id="stAll" type="checkbox"> Show every screenshot in the result, not only the ones that differ</label>
         <p class="need" hidden></p><p class="err" role="alert" hidden></p>
-        <button class="btn" type="button" data-act="stabilize">Stabilize</button>
+        <button class="btn" type="button" data-act="stabilize" data-tip="Takes extra screenshots to find the ones that keep changing. Takes a while. Approves nothing.">Stabilize</button>
       </article>
       <article class="card">
         <h3>Build atlas and open</h3>
         <p>Captures everything, rebuilds the dashboard and opens it in your browser. Approves nothing.</p>
         <p class="need" hidden></p><p class="err" role="alert" hidden></p>
-        <button class="btn" type="button" data-act="atlas">Build atlas and open</button>
+        <button class="btn" type="button" data-act="atlas" data-tip="Captures everything, rebuilds the dashboard and opens it in your browser. Approves nothing.">Build atlas and open</button>
       </article>
     </div>
   </section>
@@ -316,22 +316,22 @@ dialog label { font-size: 13px; }
         <h3>Approve new</h3>
         <p>Makes every new screenshot (one with no golden yet) an approved golden. You are asked to confirm first, and the count is shown.</p>
         <p class="need" hidden></p><p class="err" role="alert" hidden></p>
-        <button class="btn ok" type="button" data-act="approve-new">Approve new</button>
+        <button class="btn ok" type="button" data-act="approve-new" data-tip="Makes every new screenshot, one with no golden yet, an approved golden. Asks you to confirm first.">Approve new</button>
       </article>
       <article class="card">
         <h3>Approve all</h3>
         <p>Approves every new, changed, stale or unsettled screenshot at once, replacing the old goldens. You are asked to confirm first. To check each one, use Open review.</p>
         <p class="need" hidden></p><p class="err" role="alert" hidden></p>
-        <button class="btn ok" type="button" data-act="approve-all">Approve all</button>
+        <button class="btn ok" type="button" data-act="approve-all" data-tip="Replaces the goldens of every new, changed, stale and unsettled screenshot. Asks you to confirm first.">Approve all</button>
       </article>
       <article class="card">
         <h3>Open review</h3>
         <p>Opens a page where you compare each screenshot with its golden, then approve or deny it one at a time. It runs only on this computer.</p>
         <p id="reviewText" class="need">Not running.</p>
         <p class="err" role="alert" hidden></p>
-        <a id="reviewLink" class="btn primary" href="#" target="_blank" rel="noopener" hidden>Open review page</a>
-        <button class="btn" type="button" data-act="review-start">Open review</button>
-        <button class="btn" type="button" data-act="review-stop" hidden>Stop review</button>
+        <a id="reviewLink" class="btn primary" href="#" target="_blank" rel="noopener" data-tip="Opens the review page running on this computer." hidden>Open review page</a>
+        <button class="btn" type="button" data-act="review-start" data-tip="Starts a local page where you compare each screenshot with its golden and approve or deny it.">Open review</button>
+        <button class="btn" type="button" data-act="review-stop" data-tip="Stops the review page that was started from this panel." hidden>Stop review</button>
       </article>
     </div>
   </section>
@@ -343,31 +343,31 @@ dialog label { font-size: 13px; }
         <h3>Rebuild dashboard</h3>
         <p>Rebuilds the dashboard from the latest results and opens it in your browser.</p>
         <p class="need" hidden></p><p class="err" role="alert" hidden></p>
-        <button class="btn" type="button" data-act="build">Rebuild dashboard</button>
+        <button class="btn" type="button" data-act="build" data-tip="Rebuilds the dashboard from the latest results and opens it in your browser. Approves nothing.">Rebuild dashboard</button>
       </article>
       <article class="card">
         <h3>Open dashboard</h3>
         <p>Opens the dashboard from the last build in your browser.</p>
         <p class="need" hidden></p><p class="err" role="alert" hidden></p>
-        <button class="btn" type="button" data-act="open-dash">Open dashboard</button>
+        <button class="btn" type="button" data-act="open-dash" data-tip="Opens the dashboard from the last build in your browser. Nothing is rebuilt.">Open dashboard</button>
       </article>
       <article class="card">
         <h3>Open test report</h3>
         <p>Opens the test report from the last Check or Capture in your browser.</p>
         <p class="need" hidden></p><p class="err" role="alert" hidden></p>
-        <button class="btn" type="button" data-act="report">Open test report</button>
+        <button class="btn" type="button" data-act="report" data-tip="Opens the test report from the last Check or Capture in your browser.">Open test report</button>
       </article>
       <article class="card">
         <h3>Crawl links</h3>
         <p>Visits the app and follows its links to list the pages it finds, then saves that list. Takes no screenshots and approves nothing.</p>
         <p class="need" hidden></p><p class="err" role="alert" hidden></p>
-        <button class="btn" type="button" data-act="crawl">Crawl links</button>
+        <button class="btn" type="button" data-act="crawl" data-tip="Visits the app, follows its links and saves the list of pages it finds. Takes no screenshots.">Crawl links</button>
       </article>
       <article class="card">
         <h3>Discover navigation</h3>
         <p>Looks through the app's menus and navigation and saves the links it finds. Takes no screenshots and approves nothing.</p>
         <p class="need" hidden></p><p class="err" role="alert" hidden></p>
-        <button class="btn" type="button" data-act="discover">Discover navigation</button>
+        <button class="btn" type="button" data-act="discover" data-tip="Looks through the app's menus and navigation and saves the links it finds. Takes no screenshots.">Discover navigation</button>
       </article>
     </div>
   </section>
@@ -378,9 +378,9 @@ dialog label { font-size: 13px; }
       <article class="card">
         <h3>Clean</h3>
         <p>Deletes the generated results: review data, screenshots, reports, the dashboard and the crawl lists. Approved goldens are kept unless you tick the box below. Your app's code is never touched.</p>
-        <label class="check"><input id="cleanGold" type="checkbox"> Also delete goldens (every approved screenshot). You will be asked to type a confirmation.</label>
+        <label class="check" data-tip="Also removes the approved goldens. Nothing can be compared until you approve again. Leave unticked to keep them."><input id="cleanGold" type="checkbox"> Also delete goldens (every approved screenshot). You will be asked to type a confirmation.</label>
         <p class="need" hidden></p><p class="err" role="alert" hidden></p>
-        <button class="btn bad" type="button" data-act="clean">Clean</button>
+        <button class="btn bad" type="button" data-act="clean" data-tip="Deletes generated results such as screenshots, reports and the dashboard. Goldens are kept unless you tick the box above.">Clean</button>
       </article>
     </div>
   </section>
@@ -394,7 +394,7 @@ dialog label { font-size: 13px; }
     <p class="form-note">These are the same questions as the terminal setup. The form starts from the standard answers. It does not read your current config.</p>
     <p id="cfgDemo" class="form-note" hidden>This config points at the demo site. The demo goldens are only examples: when you are done, use Clean with "Also delete goldens".</p>
 
-    <label class="stack">App name
+    <label class="stack" data-tip="The name shown at the top of this panel, for example My shop.">App name
       <input id="cfgName" class="field" name="title" type="text" maxlength="500" required placeholder="For example: My shop">
     </label>
 
@@ -405,36 +405,36 @@ dialog label { font-size: 13px; }
       <label class="check"><input type="radio" name="kind" value="r"> Already running: the app is open at a web address</label>
     </fieldset>
 
-    <label class="stack" data-kind="d" hidden>Dev server command
+    <label class="stack" data-kind="d" hidden data-tip="The command that starts your app, such as npm run dev. It runs in the folder below.">Dev server command
       <input id="cfgCmd" class="field" type="text" maxlength="500" value="npm run dev">
     </label>
-    <label class="stack" data-kind="d" hidden>Run it in this folder (relative to the atlas folder)
+    <label class="stack" data-kind="d" hidden data-tip="The folder your app lives in, counted from the atlas folder. For example ../my-app means the folder next to the atlas.">Run it in this folder (relative to the atlas folder)
       <input id="cfgCwd" class="field" type="text" maxlength="500" value="..">
     </label>
-    <label class="stack" data-kind="d r">
+    <label class="stack" data-kind="d r" data-tip="The address where the app answers while it runs, such as http://localhost:5173. The atlas opens its pages there.">
       <span id="cfgUrlLabel">URL it serves</span>
       <input id="cfgUrl" class="field" type="url" maxlength="500" value="http://localhost:5173">
     </label>
-    <label class="stack" data-kind="s" hidden>Static folder (relative to the atlas folder)
+    <label class="stack" data-kind="s" hidden data-tip="The folder with the built app, counted from the atlas folder. For example ../dist.">Static folder (relative to the atlas folder)
       <input id="cfgDir" class="field" type="text" maxlength="500" value="../dist">
     </label>
-    <label class="stack" data-kind="s" hidden>Port
+    <label class="stack" data-kind="s" hidden data-tip="The local port the built app is served on. Pick one that nothing else uses.">Port
       <input id="cfgPort" class="field" type="text" inputmode="numeric" maxlength="5" value="8091">
     </label>
 
-    <label class="stack">Start page path
+    <label class="stack" data-tip="The page the atlas starts from, such as / for the home page or /dashboard for another page.">Start page path
       <input id="cfgStart" class="field" type="text" maxlength="500" value="/">
     </label>
 
-    <label class="check"><input id="cfgDark" type="checkbox" checked> The app has a dark mode</label>
-    <label class="stack" id="cfgThemeWrap">Theme storage key (optional)
+    <label class="check" data-tip="Turn on if the app has a dark theme, so its screens are also captured in dark mode."><input id="cfgDark" type="checkbox" checked> The app has a dark mode</label>
+    <label class="stack" id="cfgThemeWrap" data-tip="The name of the localStorage key where the app saves its light or dark choice. Leave empty if the app follows the system setting.">Theme storage key (optional)
       <input id="cfgTheme" class="field" type="text" maxlength="500" value="">
       <small class="muted">The name the app uses in localStorage for its theme. Leave empty if the app follows the operating system setting.</small>
     </label>
-    <label class="check"><input id="cfgMobile" type="checkbox"> Also capture a phone-sized view</label>
-    <label class="check"><input id="cfgCrawl" type="checkbox" checked> Find pages by following links (the crawler)</label>
+    <label class="check" data-tip="Also captures every screen at phone size, as an extra variant to compare."><input id="cfgMobile" type="checkbox"> Also capture a phone-sized view</label>
+    <label class="check" data-tip="Visits the app and follows its links to find the pages to screenshot."><input id="cfgCrawl" type="checkbox" checked> Find pages by following links (the crawler)</label>
 
-    <label class="check" id="cfgReplaceWrap" hidden><input id="cfgReplace" type="checkbox"> Replace the existing config (a backup is kept)</label>
+    <label class="check" id="cfgReplaceWrap" hidden data-tip="Overwrites the current config file. A backup of the old one is kept."><input id="cfgReplace" type="checkbox"> Replace the existing config (a backup is kept)</label>
 
     <p id="cfgErr" class="dlg-err" role="alert" hidden></p>
     <div class="dlg-actions">
@@ -447,6 +447,7 @@ dialog label { font-size: 13px; }
 <dialog id="confirmDlg" aria-label="Confirm"></dialog>
 <div id="toast" role="status" aria-live="polite"></div>
 
+<script src="/tooltip.js"></script>
 <script>
 (() => {
 'use strict';
@@ -532,7 +533,7 @@ function gate(act) {
   const rec = s.records ?? {};
   switch (act) {
     case 'setup': case 'deps': case 'configure':
-      return s.nodeOk ? '' : 'Needs Node.js 18 or newer (see the Next step box).';
+      return s.nodeOk ? '' : 'Needs Node.js 18 or newer (see the message under the pipeline).';
     case 'capture': case 'check': case 'stabilize': case 'atlas': case 'build': case 'crawl': case 'discover':
       return ready ? '' : 'Needs Set up and Configure first.';
     case 'approve-new': return (rec.new ?? 0) > 0 ? '' : 'No new screenshots to approve.';
@@ -613,7 +614,7 @@ function renderPipeline() {
     const reason = !s ? 'Checking the panel…'
       : x.reason || (busy && x.act !== 'review-open' ? 'A job is running. Wait for it to finish, or stop it under Live output.' : x.act ? gate(x.act) : '');
     b.disabled = !x.act || !!reason || S.posting;
-    b.title = reason || st.hint;
+    b.dataset.tip = reason || st.hint;
     if (state === 'now' || state === 'attention') b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current');
     b.setAttribute('aria-label', `Step ${i + 1}, ${st.title}: ${note}`);
     b.children[0].textContent = GLYPHS[state] ?? String(i + 1);
@@ -634,12 +635,12 @@ function renderState() {
   const chips = $('chips');
   chips.replaceChildren();
   if (s) {
-    const chip = (label, value, tone) => chips.append(h('span', { class: 'chip' }, h('span', { class: `dot ${tone}` }), `${label}: `, h('b', { text: value })));
-    chip('Node', s.node || '—', s.nodeOk ? 'ok' : 'bad');
-    chip('Dependencies', s.depsInstalled ? 'installed' : 'missing', s.depsInstalled ? 'ok' : 'warn');
-    chip('Config', s.configExists ? 'ready' : 'missing', s.configExists ? 'ok' : 'warn');
-    chip('Goldens', String(s.goldens ?? 0), s.goldens ? 'ok' : 'muted');
-    if (s.isDemo) chip('Demo', 'example app', 'warn');
+    const chip = (label, value, tone, tip) => chips.append(h('span', { class: 'chip', 'data-tip': tip }, h('span', { class: `dot ${tone}` }), `${label}: `, h('b', { text: value })));
+    chip('Node', s.node || '—', s.nodeOk ? 'ok' : 'bad', 'The Node.js version on this computer. The panel needs version 18 or newer.');
+    chip('Dependencies', s.depsInstalled ? 'installed' : 'missing', s.depsInstalled ? 'ok' : 'warn', 'Whether the packages and the test browser are installed. Set up installs them.');
+    chip('Config', s.configExists ? 'ready' : 'missing', s.configExists ? 'ok' : 'warn', 'Whether the atlas knows about your app yet. Configure creates it.');
+    chip('Goldens', String(s.goldens ?? 0), s.goldens ? 'ok' : 'muted', 'How many approved screenshots exist. New captures are compared with these.');
+    if (s.isDemo) chip('Demo', 'example app', 'warn', 'This config points at the example app. Its goldens are only examples.');
   }
   $('conn').hidden = S.connOk !== false;
 
@@ -695,15 +696,15 @@ function renderResults() {
     box.append(h('p', { class: 'muted', text: 'No results yet. Press Capture to take the first screenshots.' }));
   } else {
     const tiles = [
-      ['VISUAL', rec.changed ?? 0, 'The screenshot looks different from its golden.'],
-      ['STALE', rec.stale ?? 0, 'The golden was made before a config change.'],
-      ['UNSETTLED', rec.unsettled ?? 0, 'The screen keeps changing, so it cannot be compared.'],
-      ['INFRA', fails.filter(f => f.class === 'infra').length, 'The test could not run (timeouts, connection problems). Not a visual difference.'],
-      ['FLAKY', flaky.length, 'Failed once, then passed on retry.'],
-      ['NEW', rec.new ?? 0, 'No golden yet. Waiting for approval.'],
+      ['VISUAL', rec.changed ?? 0, 'The screenshot looks different from its golden.', 'Screenshots that look different from their goldens. Open review to compare them.'],
+      ['STALE', rec.stale ?? 0, 'The golden was made before a config change.', 'The settings for these screenshots changed after they were approved. Check they still look right, then approve.'],
+      ['UNSETTLED', rec.unsettled ?? 0, 'The screen keeps changing, so it cannot be compared.', 'The screen kept changing while it was photographed, so it cannot be compared reliably.'],
+      ['INFRA', fails.filter(f => f.class === 'infra').length, 'The test could not run (timeouts, connection problems). Not a visual difference.', 'Tests that could not run because of timeouts or connection problems. They are not visual differences.'],
+      ['FLAKY', flaky.length, 'Failed once, then passed on retry.', 'Tests that failed at first and passed on retry, so they may be unstable.'],
+      ['NEW', rec.new ?? 0, 'No golden yet. Waiting for approval.', 'Screenshots with no approved golden yet. They wait for approval.'],
     ];
-    box.append(h('div', { class: 'tiles' }, tiles.map(([k, n, d]) =>
-      h('div', { class: 'tile' }, h('span', { class: 'tk', text: k }), h('b', { text: String(n) }), h('span', { class: 'td', text: d })))));
+    box.append(h('div', { class: 'tiles' }, tiles.map(([k, n, d, tip]) =>
+      h('div', { class: 'tile', 'data-tip': tip }, h('span', { class: 'tk', text: k }), h('b', { text: String(n) }), h('span', { class: 'td', text: d })))));
   }
 
   box.append(h('p', { class: 'muted' }, sum
@@ -916,7 +917,7 @@ function confirmBox({ title, paras = [], ok, danger = false, force = false, type
     d.replaceChildren(
       h('h2', { text: title }),
       ...paras.map(p => h('p', { text: p })),
-      forceEl ? h('label', { class: 'check' }, forceEl, ' ', FORCE_TEXT) : null,
+      forceEl ? h('label', { class: 'check', 'data-tip': 'Skips the safety check. Only use it when you know the failures or unsettled shots do not matter.' }, forceEl, ' ', FORCE_TEXT) : null,
       typedEl ? h('label', { class: 'stack' }, 'Type ', h('code', { text: typed }), ' to confirm', typedEl) : null,
       h('div', { class: 'dlg-actions' }, cancel, okBtn));
     d.showModal();

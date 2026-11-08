@@ -83,8 +83,8 @@ export type RunSummary = {
 export type StabilizeRow = {
   node: string;
   variant: string;
-  key: string;
-  stable: 'yes' | 'no' | 'error';
+  key: string | null;
+  stable: 'no' | 'error';
   diffPixels: number | null;
   bbox: BBox | null;
   cause: string;

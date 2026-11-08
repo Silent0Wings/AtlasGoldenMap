@@ -211,22 +211,22 @@ aside h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; co
   <div class="bar">
     <label class="search">
       <svg viewBox="0 0 24 24" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="q" type="search" placeholder="Search key, label, tag…" autocomplete="off" aria-label="Search records">
+      <input id="q" type="search" placeholder="Search key, label, tag…" autocomplete="off" aria-label="Search records" data-tip="Filter the queue by key, label, tag or status. Press Esc to clear.">
       <kbd>/</kbd>
     </label>
-    <select id="fDecision" class="field" aria-label="Decision filter">
+    <select id="fDecision" class="field" aria-label="Decision filter" data-tip="Show only records that are pending, approved or denied.">
       <option value="">All decisions</option>
       <option value="pending">Pending</option>
       <option value="denied">Denied</option>
       <option value="approved">Approved</option>
     </select>
-    <select id="fVariant" class="field" aria-label="Variant filter"></select>
-    <select id="fKind" class="field" aria-label="Kind filter"></select>
-    <select id="fGroup" class="field" aria-label="Group filter"></select>
+    <select id="fVariant" class="field" aria-label="Variant filter" data-tip="Show only one variant: one way of viewing every screen, such as light, dark or mobile."></select>
+    <select id="fKind" class="field" aria-label="Kind filter" data-tip="Show only one kind of capture, such as a page, a component or an item."></select>
+    <select id="fGroup" class="field" aria-label="Group filter" data-tip="Show only one group of screens, as set in the atlas config."></select>
   </div>
   <div class="runbar">
-    <input id="grep" class="field" placeholder="grep (optional)" aria-label="Capture grep" autocomplete="off">
-    <button id="run" class="btn primary">Run capture</button>
+    <input id="grep" class="field" placeholder="grep (optional)" aria-label="Capture grep" autocomplete="off" data-tip="Optional. Only capture screens whose test name contains this text. Leave empty to capture everything.">
+    <button id="run" class="btn primary" data-tip="Take new screenshots of the app now, using the grep box if it is filled. The log shows progress.">Run capture</button>
   </div>
 </header>
 <div class="banner" id="banner" role="status" hidden></div>
@@ -235,7 +235,7 @@ aside h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; co
   <nav id="queue" aria-label="Records">
     <div class="qhead">
       <span class="count" id="qcount"></span>
-      <button class="btn" id="approveNew">Approve all visible new</button>
+      <button class="btn" id="approveNew" data-tip="Copies the current screenshot of every visible new record into goldens. Asks for confirmation first.">Approve all visible new</button>
     </div>
     <ul class="list" id="list" role="listbox" aria-label="Records"></ul>
   </nav>
@@ -243,14 +243,14 @@ aside h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; co
   <section id="viewer" aria-label="Viewer">
     <div class="vbar">
       <div class="seg" role="group" aria-label="View mode" id="modes">
-        <button data-mode="side">Side-by-side <kbd>1</kbd></button>
-        <button data-mode="slider">Slider <kbd>2</kbd></button>
-        <button data-mode="overlay">Overlay <kbd>3</kbd></button>
-        <button data-mode="diff">Diff <kbd>4</kbd></button>
+        <button data-mode="side" data-tip="Approved, actual and diff screenshots shown next to each other.">Side-by-side <kbd>1</kbd></button>
+        <button data-mode="slider" data-tip="Drag the handle to wipe between the approved and the actual screenshot.">Slider <kbd>2</kbd></button>
+        <button data-mode="overlay" data-tip="Lay the actual screenshot over the approved one. Use the opacity slider to fade it.">Overlay <kbd>3</kbd></button>
+        <button data-mode="diff" data-tip="Show only the pixels that differ, marked in red.">Diff <kbd>4</kbd></button>
       </div>
       <div class="seg" role="group" aria-label="Zoom">
-        <button data-zoomlvl="fit">Fit</button>
-        <button data-zoomlvl="100">100%</button>
+        <button data-zoomlvl="fit" data-tip="Scale the screenshots to fit the panel.">Fit</button>
+        <button data-zoomlvl="100" data-tip="Show the screenshots at their real size. Scroll to see the rest.">100%</button>
       </div>
       <label class="opacity" id="opWrap" hidden>Opacity <input id="opacity" type="range" min="0" max="1" step="0.01" value="0.5" aria-label="Overlay opacity"></label>
       <div class="vtitle" id="vtitle"></div>
@@ -267,17 +267,39 @@ aside h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; co
 </details>
 <div id="toast" role="status" aria-live="polite"></div>
 
+<script src="/tooltip.js"></script>
 <script>
 (() => {
 'use strict';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const tipAttr = t => (t ? ` data-tip="${esc(t)}"` : '');
 const STATUSES = ['changed', 'unsettled', 'stale', 'new', 'match', 'volatile'];
 const STATUS_RANK = { changed: 0, unsettled: 1, stale: 2, new: 3, match: 4, volatile: 5 };
 const STATUS_HINT = {
   stale: 'Golden predates a config change: re-capture and approve.',
   unsettled: 'Never stopped changing: run stabilize before approving.',
+};
+const STATUS_TIP = {
+  changed: "Looks different from its approved screenshot. Compare them, then approve or deny.",
+  unsettled: "The screen kept changing while it was photographed, so it cannot be compared reliably.",
+  stale: "The settings for this shot changed after it was approved. Check it still looks right, then approve it.",
+  new: "No approved screenshot exists yet, so it is waiting for approval.",
+  match: "Looks the same as its approved screenshot. Nothing to do.",
+  volatile: "Captured for the map but never compared, because it is expected to move.",
+};
+const DECISION_TIP = {
+  pending: "Waiting for a decision.",
+  approved: "Accepted as the new golden.",
+  denied: "Rejected. Stays flagged until the image changes.",
+};
+const REASON_TIP = {
+  size: "The actual screenshot is a different size from the golden, so the pixels cannot be compared.",
+  pixels: "Too many pixels differ from the golden, more than the threshold allows.",
+  html: "The page's HTML differs from the approved one.",
+  config: "The settings for this shot differ from the approved ones.",
+  unsettled: "The screen kept changing while it was photographed, so it cannot be compared reliably.",
 };
 const MODES = ['side', 'slider', 'overlay', 'diff'];
 
@@ -411,8 +433,8 @@ function renderHeader() {
   for (const r of S.records) if (r.status in counts) counts[r.status]++;
   const markupN = S.records.filter(r => r.htmlChanged).length;
   $('statusChips').innerHTML = STATUSES.map(s =>
-    `<button class="chip" data-status="${s}" aria-pressed="${S.status.has(s)}"><span class="dot st-${s}"></span>${s} <span class="n">${counts[s]}</span></button>`).join('')
-    + `<button class="chip" data-markup aria-pressed="${S.markup}" title="Markup changed but pixels match. Approvable."><span class="dot mk"></span>markup changed <span class="n">${markupN}</span></button>`;
+    `<button class="chip" data-status="${s}" aria-pressed="${S.status.has(s)}"${tipAttr(STATUS_TIP[s])}><span class="dot st-${s}"></span>${s} <span class="n">${counts[s]}</span></button>`).join('')
+    + `<button class="chip" data-markup aria-pressed="${S.markup}" data-tip="The page's HTML changed but it looks the same. Shown for information, it does not fail, and it can be approved."><span class="dot mk"></span>markup changed <span class="n">${markupN}</span></button>`;
 
   const variants = [...new Set(S.records.map(r => r.variant).filter(Boolean))].sort();
   const kinds = [...new Set(S.records.map(r => r.kind).filter(Boolean))].sort();
@@ -442,7 +464,7 @@ function renderQueue() {
       <div style="min-width:0">
         <div class="t">${esc(label(r))}</div>
         <div class="s"><code>${esc(r.key)}</code></div>
-        <div class="qp"><span class="pill st-${esc(r.status)}">${esc(r.status)}</span><span class="pill dec-${esc(r.decision)}">${esc(r.decision)}</span></div>
+        <div class="qp"><span class="pill st-${esc(r.status)}"${tipAttr(STATUS_TIP[r.status])}>${esc(r.status)}</span><span class="pill dec-${esc(r.decision)}"${tipAttr(DECISION_TIP[r.decision])}>${esc(r.decision)}</span></div>
       </div>
     </li>`).join('') : `<li class="empty">${esc(empty)}</li>`;
   const selEl = $('list').querySelector('[aria-selected="true"]');
@@ -536,36 +558,36 @@ function renderDetails() {
     <div class="dhead">
       <div class="crumbs">${esc(r.variant)} · ${esc(r.kind)}${r.group ? ` · ${esc(r.group)}` : ''}</div>
       <h2>${esc(label(r))}</h2>
-      <div class="pills"><span class="pill st-${esc(r.status)}">${esc(r.status)}</span><span class="pill dec-${esc(r.decision)}">${esc(r.decision)}</span></div>
+      <div class="pills"><span class="pill st-${esc(r.status)}"${tipAttr(STATUS_TIP[r.status])}>${esc(r.status)}</span><span class="pill dec-${esc(r.decision)}"${tipAttr(DECISION_TIP[r.decision])}>${esc(r.decision)}</span></div>
     </div>
     ${r.status === 'changed' && r.htmlIdentical && (r.reasons ?? []).some(x => x === 'pixels' || x === 'size') ? '<p class="hint">HTML identical → change came from CSS, not markup</p>' : ''}
     ${STATUS_HINT[r.status] ? `<p class="hint">${esc(STATUS_HINT[r.status])}</p>` : ''}
-    ${reasons.length ? `<div class="chips-row">${reasons.map(x => `<span class="chip static">${esc(x)}</span>`).join('')}</div>` : ''}
+    ${reasons.length ? `<div class="chips-row">${reasons.map(x => `<span class="chip static"${tipAttr(REASON_TIP[x])}>${esc(x)}</span>`).join('')}</div>` : ''}
     <dl class="meta">
-      <dt>key</dt><dd><code>${esc(r.key)}</code></dd>
-      <dt>id</dt><dd><code>${esc(r.id)}</code></dd>
-      <dt>node</dt><dd><code>${esc(r.nodeId)}</code></dd>
-      <dt>kind</dt><dd>${esc(r.kind)}</dd>
-      <dt>tags</dt><dd>${tags.length ? tags.map(t => `<span class="tag">${esc(t)}</span>`).join(' ') : '—'}</dd>
-      <dt>volatile</dt><dd>${r.volatile ? 'yes (captured, never compared)' : 'no'}</dd>
-      <dt>size</dt><dd>actual ${r.width}×${r.height} · golden ${sizeG}</dd>
-      <dt>diff</dt><dd>${pct}${px}</dd>
-      ${r.threshold != null ? `<dt>threshold</dt><dd>${Number(r.threshold)}</dd>` : ''}
-      ${bbox ? `<dt>bbox</dt><dd><code>${esc(bbox)}</code></dd>` : ''}
-      <dt>html</dt><dd>${htmlState} <code>${short(r.htmlHash)}</code></dd>
-      <dt>config</dt><dd>${cfgState} <code>${short(r.configHash)}</code></dd>
-      <dt>captured</dt><dd>${fmtDate(r.capturedAt)}</dd>
+      <dt data-tip="The unique name of this record. It is kept in the address bar while the record is selected.">key</dt><dd><code>${esc(r.key)}</code></dd>
+      <dt data-tip="The identifier of the screen or item this record captures.">id</dt><dd><code>${esc(r.id)}</code></dd>
+      <dt data-tip="The map node (screen) this shot belongs to.">node</dt><dd><code>${esc(r.nodeId)}</code></dd>
+      <dt data-tip="What kind of capture this is, such as a page, a component or an item.">kind</dt><dd>${esc(r.kind)}</dd>
+      <dt data-tip="Labels set on this screen in the atlas config. They are searched along with the key and label.">tags</dt><dd>${tags.length ? tags.map(t => `<span class="tag">${esc(t)}</span>`).join(' ') : '—'}</dd>
+      <dt data-tip="Captured for the map but never compared, because it is expected to move.">volatile</dt><dd>${r.volatile ? 'yes (captured, never compared)' : 'no'}</dd>
+      <dt data-tip="Pixel size of the actual screenshot and of the approved golden. A different size means no pixel diff.">size</dt><dd>actual ${r.width}×${r.height} · golden ${sizeG}</dd>
+      <dt data-tip="The share of pixels that differ from the golden, with the number of pixels in brackets.">diff</dt><dd>${pct}${px}</dd>
+      ${r.threshold != null ? `<dt data-tip="How much of the image may differ before it counts as changed.">threshold</dt><dd>${Number(r.threshold)}</dd>` : ''}
+      ${bbox ? `<dt data-tip="The rectangle that contains every differing pixel, as (left,top)-(right,bottom).">bbox</dt><dd><code>${esc(bbox)}</code></dd>` : ''}
+      <dt data-tip="A fingerprint of the page's HTML. If it matches the approved one, the markup did not change.">html</dt><dd>${htmlState} <code>${short(r.htmlHash)}</code></dd>
+      <dt data-tip="A fingerprint of this shot's settings. If it matches the approved one, the settings did not change.">config</dt><dd>${cfgState} <code>${short(r.configHash)}</code></dd>
+      <dt data-tip="When this screenshot was taken.">captured</dt><dd>${fmtDate(r.capturedAt)}</dd>
       ${r.decidedAt ? `<dt>decided</dt><dd>${fmtDate(r.decidedAt)}</dd>` : ''}
     </dl>
     ${r.note ? `<h3>Note</h3><p class="note-text">${esc(r.note)}</p>` : ''}
-    ${hasMarkup ? `<h3>Markup</h3><details class="mdiff" id="mdiff"${r.htmlChanged ? ' open' : ''}><summary>${r.htmlChanged ? 'Markup changed, pixels match' : 'Markup diff'}</summary><div class="mdiff-body" id="mdiffBody"></div></details>` : ''}
+    ${hasMarkup ? `<h3>Markup</h3><details class="mdiff" id="mdiff"${r.htmlChanged ? ' open' : ''}><summary data-tip="Line by line difference between the approved HTML and the current HTML. Green lines were added, red lines were removed.">${r.htmlChanged ? 'Markup changed, pixels match' : 'Markup diff'}</summary><div class="mdiff-body" id="mdiffBody"></div></details>` : ''}
     <div class="actions">
-      <button class="btn ok" data-act="approve" ${S.busy ? 'disabled' : ''}>Approve <kbd>a</kbd></button>
-      <button class="btn bad" data-act="deny" ${S.busy ? 'disabled' : ''}>Deny <kbd>d</kbd></button>
+      <button class="btn ok" data-act="approve" data-tip="Accept the current screenshot as the new golden for this record." ${S.busy ? 'disabled' : ''}>Approve <kbd>a</kbd></button>
+      <button class="btn bad" data-act="deny" data-tip="Reject this change. You will be asked for a short reason, and the denial sticks while the image stays the same." ${S.busy ? 'disabled' : ''}>Deny <kbd>d</kbd></button>
     </div>
     <div class="nav2">
-      <button class="btn" data-act="prev" ${list.length < 2 ? 'disabled' : ''}>← Prev <kbd>k</kbd></button>
-      <button class="btn" data-act="next" ${list.length < 2 ? 'disabled' : ''}>Next <kbd>j</kbd></button>
+      <button class="btn" data-act="prev" data-tip="Select the previous record in the queue." ${list.length < 2 ? 'disabled' : ''}>← Prev <kbd>k</kbd></button>
+      <button class="btn" data-act="next" data-tip="Select the next record in the queue." ${list.length < 2 ? 'disabled' : ''}>Next <kbd>j</kbd></button>
     </div>
     <p class="pos">${pos >= 0 ? `${pos + 1} of ${plural(list.length, 'record')} in the queue` : 'Not in the current filter'}</p>`;
 

@@ -58,6 +58,12 @@ If a `.sh` wrapper reports "permission denied", run `chmod +x script/*.sh` once,
 
 ---
 
+## Documentation
+
+The documentation index is [docs/README.md](docs/README.md). New to the tool? [Getting started](docs/getting-started.md) walks through a first run. Using an AI agent? [Using it with an agent](docs/using-with-an-agent.md) covers the commands an agent should run and the rules it should follow.
+
+---
+
 ## Scripts
 
 | Command | Windows | macOS / Linux | npm | What it does |
@@ -99,7 +105,7 @@ Only `approve-new`, `approve-all`, the **Approve** and **Deny** buttons in the r
 
 ## Using it in your own project
 
-1. **Copy the folder into your repository**, for example to `<your-repo>/tools/atlas`. The folder can have any name. The tool keeps its own `package.json` and `node_modules`, so your app's dependencies are untouched.
+1. **Copy the folder into your repository**, for example to `<your-repo>/atlas`. The folder can have any name. The tool keeps its own `package.json` and `node_modules`, so your app's dependencies are untouched.
 2. **Run `setup`** (`script\setup.bat` or `./script/setup.sh`). It installs the tool and asks a few questions to create `atlas.config.ts`. You can also run `config` at any time.
 3. **Write your nodes** in `atlas.config.ts`. Start with one `page` node per screen, then add `state` nodes for modals, tabs and other interactions, `components` for regions you want to see on their own, and `collection` for repeated items such as cards or rows.
 4. **Choose how the app is served.** Set `server` in the config, or leave it out.

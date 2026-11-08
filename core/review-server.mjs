@@ -16,6 +16,7 @@ import { ROOT, DIRS, listRecords, approve, deny, paths, htmlDiff, readRunSummary
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REVIEW_HTML = path.join(HERE, 'review.html');
+const TOOLTIP_JS = path.join(HERE, 'tooltip.js');
 const META = path.join(ROOT, 'shots', 'meta.json');
 const RUN_LOG = path.join(ROOT, 'review', 'run.log');
 const LOCK_FILE = path.join(ROOT, 'review', '.capture.lock');
@@ -172,6 +173,13 @@ function serveHtml(res) {
   res.end(html);
 }
 
+function serveTooltip(res) {
+  let js;
+  try { js = fs.readFileSync(TOOLTIP_JS); } catch { throw httpError(500, 'core/tooltip.js is missing'); }
+  res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.end(js);
+}
+
 function serveFile(res, p) {
   if (typeof p !== 'string' || !p || p.includes('\0')) throw httpError(400, 'missing p');
   const abs = path.resolve(ROOT, p);
@@ -266,6 +274,10 @@ async function handle(req, res) {
   if (pathname === '/') {
     if (method !== 'GET') throw httpError(405, 'method not allowed');
     return serveHtml(res);
+  }
+  if (pathname === '/tooltip.js') {
+    if (method !== 'GET') throw httpError(405, 'method not allowed');
+    return serveTooltip(res);
   }
   if (pathname === '/file') {
     if (method !== 'GET') throw httpError(405, 'method not allowed');

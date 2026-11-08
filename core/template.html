@@ -142,27 +142,27 @@ dl.meta dt { color: var(--muted); } dl.meta dd { margin: 0; min-width: 0; }
 </head>
 <body>
 <header>
-  <a class="chip back" id="backPanel" href="__PANEL_URL__" hidden>← Control panel</a>
+  <a class="chip back" id="backPanel" href="__PANEL_URL__" hidden data-tip="Go back to the control panel, where you run captures and reviews.">← Control panel</a>
   <h1><img class="logo" src="__ICON__" alt="">__TITLE__ <span>Golden Map Atlas</span></h1>
   <label class="search">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-    <input id="q" type="search" placeholder="Search screens, components, selectors, tags…" autocomplete="off" aria-label="Search">
+    <input id="q" type="search" placeholder="Search screens, components, selectors, tags…" autocomplete="off" aria-label="Search" data-tip="Find screens by name, component, CSS selector or tag. Matches are highlighted in the graph. Press / to jump here.">
     <kbd>/</kbd>
   </label>
   <div class="controls">
-    <select id="group" class="chip" aria-label="Group" hidden><option value="">All groups</option></select>
-    <button class="chip" id="tItems" aria-pressed="false" hidden title="Show every collection item (otherwise only items that lead somewhere)"><span class="dot k-item"></span><span id="tItemsLabel">All items</span></button>
-    <button class="chip" id="tComp" aria-pressed="false" title="Show sub-component nodes"><span class="dot k-component"></span>Components</button>
-    <button class="chip" id="tChanged" aria-pressed="false" hidden title="Show only nodes needing review (changed, new, stale or unsettled) in the current variant, plus their ancestors"><span class="dot st-changed"></span>Changed only</button>
-    <div class="seg" role="group" aria-label="Screenshot variant" id="variants"></div>
+    <select id="group" class="chip" aria-label="Group" hidden data-tip="Show only the screens in one group, plus the screens that lead to them."><option value="">All groups</option></select>
+    <button class="chip" id="tItems" aria-pressed="false" hidden data-tip="Show every collection item, not only the ones that lead somewhere."><span class="dot k-item"></span><span id="tItemsLabel">All items</span></button>
+    <button class="chip" id="tComp" aria-pressed="false" data-tip="Show each screen's sub-components as extra boxes in the graph."><span class="dot k-component"></span>Components</button>
+    <button class="chip" id="tChanged" aria-pressed="false" hidden data-tip="Show only screens that need review (changed, new, stale or unsettled) in the current variant, plus the screens that lead to them."><span class="dot st-changed"></span>Changed only</button>
+    <div class="seg" role="group" aria-label="Screenshot variant" id="variants" data-tip="Switch between the ways of viewing every screen, such as light, dark or mobile. Screenshots and status update to match."></div>
   </div>
-  <div class="stats" id="stats"></div>
+  <div class="stats" id="stats" data-tip="How many screens, components and items there are, how many need review, and when this dashboard was built."></div>
 </header>
 <main>
   <div id="cy">
     <div class="legend" id="legend"></div>
     <div class="graph-hint">Scroll to move · Shift+scroll sideways · Ctrl+scroll to zoom · drag to pan</div>
-    <div class="graph-tools"><button id="zoomOut" aria-label="Zoom out">−</button><button id="zoomIn" aria-label="Zoom in">+</button><button id="fit">Fit</button><button id="relayout">Re-layout</button></div>
+    <div class="graph-tools"><button id="zoomOut" aria-label="Zoom out" data-tip="Zoom out. Ctrl plus scroll also zooms.">−</button><button id="zoomIn" aria-label="Zoom in" data-tip="Zoom in. Ctrl plus scroll also zooms.">+</button><button id="fit" data-tip="Zoom and move the graph so every visible screen fits on screen.">Fit</button><button id="relayout" data-tip="Arrange the boxes again from scratch. Your filters and selection stay as they are.">Re-layout</button></div>
   </div>
   <aside>
     <section id="searchBox" hidden>
@@ -173,7 +173,7 @@ dl.meta dt { color: var(--muted); } dl.meta dd { margin: 0; min-width: 0; }
   </aside>
 </main>
 <div id="lightbox" role="dialog" aria-modal="true">
-  <div class="bar"><b id="lbTitle"></b><button id="lbCompare">Compare variants</button><button id="lbClose">Close (Esc)</button></div>
+  <div class="bar"><b id="lbTitle"></b><button id="lbCompare" data-tip="Show every variant side by side, or go back to a single view.">Compare variants</button><button id="lbClose">Close (Esc)</button></div>
   <div class="body" id="lbBody"></div>
 </div>
 
@@ -365,6 +365,24 @@ function layout() {
   }
 }
 
+/* ---------- tips (data-tip: see tooltip.js) ---------- */
+const tipAttr = t => t ? ` data-tip="${esc(t)}"` : '';
+const KIND_TIP = {
+  page: 'A page of the app with its own address.',
+  case: 'A screen generated from one case file in the project.',
+  state: 'A screen reached from a page by an action, such as opening a dialog. Its screenshot shows that moment.',
+  item: 'One card or row from a repeating list, captured on its own.',
+  component: 'One region of a screen, captured on its own.',
+};
+const STATUS_TIP = {
+  changed: 'Looks different from its approved screenshot. Compare them, then approve or deny.',
+  new: 'No approved screenshot exists yet, so it is waiting for approval.',
+  stale: 'The settings for this shot changed after it was approved. Check it still looks right, then approve it.',
+  unsettled: 'The screen kept changing while being photographed, so it cannot be compared reliably.',
+  match: 'Looks the same as its approved screenshot. Nothing to do.',
+  volatile: 'Captured for the map but never compared, because it is expected to move.',
+};
+
 /* ---------- detail ---------- */
 let current = null;
 function select(id, { center = true, push = true } = {}) {
@@ -392,26 +410,26 @@ function renderDetail(n) {
   const tags = [...new Set([...(n.tags ?? [])])];
   $('detail').innerHTML = `
     <div class="crumbs">${anc.map(a => `<a data-go="${esc(a.id)}">${esc(a.label)}</a> ›`).join(' ')}</div>
-    <h2><span class="pill k-${k}">${k}</span>${s ? ` <span class="pill s-${esc(s)}">${esc(s)}</span>` : ''} ${esc(n.label)}</h2>
+    <h2><span class="pill k-${k}"${tipAttr(KIND_TIP[k])}>${k}</span>${s ? ` <span class="pill s-${esc(s)}"${tipAttr(STATUS_TIP[s])}>${esc(s)}</span>` : ''} ${esc(n.label)}</h2>
     ${flagged ? `<p class="needs-review s-${s}">Needs review: open the review UI with <code>run review</code></p>` : ''}
     ${full ? `<div class="shot-wrap"><img class="shot" src="${full}" alt="${esc(n.label)} (${theme})" data-zoom="${esc(n.id)}"></div>
-      <div class="shot-actions"><button data-zoom="${esc(n.id)}">Open full size</button>${shotVariants(n).length > 1 ? `<button data-compare="${esc(n.id)}">Compare variants</button>` : ''}</div>`
+      <div class="shot-actions"><button data-zoom="${esc(n.id)}" data-tip="Show the screenshot at full size. Double-clicking a node in the graph does the same.">Open full size</button>${shotVariants(n).length > 1 ? `<button data-compare="${esc(n.id)}" data-tip="Show this screen in every variant side by side.">Compare variants</button>` : ''}</div>`
       : `<p class="empty">No ${esc(vname(theme))} screenshot captured.</p>`}
     <dl class="meta">
       <dt>id</dt><dd><code>${esc(n.id)}</code></dd>
       ${n.selector ? `<dt>selector</dt><dd><code>${esc(n.selector)}</code></dd>` : ''}
       ${n.url ? `<dt>url</dt><dd><code>${esc(n.url)}</code></dd>` : ''}
-      ${n.steps?.length ? `<dt>steps</dt><dd>${n.steps.map(s => `<a class="tag" data-go="${esc(s)}">${esc(get(s)?.label ?? s)}</a>`).join(' → ')}</dd>` : ''}
+      ${n.steps?.length ? `<dt data-tip="The screens passed through to reach this one. Click one to jump to it.">steps</dt><dd>${n.steps.map(s => `<a class="tag" data-go="${esc(s)}">${esc(get(s)?.label ?? s)}</a>`).join(' → ')}</dd>` : ''}
       ${groupOf(n.owner ?? n) ? `<dt>group</dt><dd>${esc(D.groups?.[groupOf(n.owner ?? n)] ?? groupOf(n.owner ?? n))}</dd>` : ''}
       <dt>variants</dt><dd>${shotVariants(n).map(vname).map(esc).join(', ') || '—'}</dd>
       ${n.volatile ? `<dt>diff</dt><dd>volatile: captured, never compared</dd>` : ''}
     </dl>
-    ${tags.length ? `<h3>Tags</h3><div class="tags">${tags.map(t => `<span class="tag" data-q="${esc(t)}">${esc(t)}</span>`).join('')}</div>` : ''}
-    ${n.text ? `<h3>Visible text</h3><p class="text">${esc(n.text)}</p>` : ''}
-    ${n.errors?.length ? `<h3>Page errors</h3>${n.errors.map(e => `<p class="warn">${esc(e)}</p>`).join('')}` : ''}
-    ${n.components?.length ? `<h3>Components (${n.components.length})</h3><div class="comps">${n.components.map(c => `
+    ${tags.length ? `<h3 data-tip="Keywords for this screen. Click one to search for every screen with it.">Tags</h3><div class="tags">${tags.map(t => `<span class="tag" data-q="${esc(t)}">${esc(t)}</span>`).join('')}</div>` : ''}
+    ${n.text ? `<h3 data-tip="Text read from this screen when it was captured. Search also matches it.">Visible text</h3><p class="text">${esc(n.text)}</p>` : ''}
+    ${n.errors?.length ? `<h3 data-tip="Errors the page logged while it was captured.">Page errors</h3>${n.errors.map(e => `<p class="warn">${esc(e)}</p>`).join('')}` : ''}
+    ${n.components?.length ? `<h3 data-tip="Smaller regions of this screen, each captured on its own. Click one to open it.">Components (${n.components.length})</h3><div class="comps">${n.components.map(c => `
       <figure data-go="${esc(c.id)}"><img src="${img(c)}" alt="${esc(c.label)}" loading="lazy"><figcaption>${esc(c.label)}<code>${esc(c.selector)}</code></figcaption></figure>`).join('')}</div>` : ''}
-    ${kids.length ? `<h3>Leads to (${kids.length})</h3><ul class="children">${kids.map(c => `<li><a data-go="${esc(c.id)}">${esc(c.label)}</a></li>`).join('')}</ul>` : ''}
+    ${kids.length ? `<h3 data-tip="Screens you can reach from this one. Click one to jump to it.">Leads to (${kids.length})</h3><ul class="children">${kids.map(c => `<li><a data-go="${esc(c.id)}">${esc(c.label)}</a></li>`).join('')}</ul>` : ''}
     ${k === 'component' ? `<h3>Part of</h3><ul class="children"><li><a data-go="${esc(n.owner.id)}">${esc(n.owner.label)}</a></li></ul>` : ''}`;
 }
 
@@ -506,8 +524,8 @@ if (comps.size) kinds.set('component', comps.size);
 const plural = (k, c) => k === 'item' ? (c === 1 ? D.labels?.item ?? 'item' : D.labels?.items ?? 'items') : c === 1 ? k : k + 's';
 const KNOWN = new Set(['page', 'state', 'item', 'component']);
 const flaggedAny = allEntries.some(o => Object.values(o.status ?? {}).some(s => REVIEW.includes(s)));
-$('legend').innerHTML = [...kinds.keys()].map(k => `<span><i class="${KNOWN.has(k) ? 'k-' + esc(k) : 'k-page'}"></i>${esc(plural(k, 1))}</span>`).join('')
-  + (flaggedAny ? '<span><i class="ring-changed"></i>changed</span><span><i class="ring-new"></i>new</span><span><i class="ring-stale"></i>stale</span><span><i class="ring-unsettled"></i>unsettled</span>' : '');
+$('legend').innerHTML = [...kinds.keys()].map(k => `<span${tipAttr(KIND_TIP[k])}><i class="${KNOWN.has(k) ? 'k-' + esc(k) : 'k-page'}"></i>${esc(plural(k, 1))}</span>`).join('')
+  + (flaggedAny ? ['changed', 'new', 'stale', 'unsettled'].map(s => `<span${tipAttr(STATUS_TIP[s])}><i class="ring-${s}"></i>${s}</span>`).join('') : '');
 $('tChanged').hidden = !flaggedAny;
 setTheme(theme);
 applyVisibility();
@@ -515,6 +533,7 @@ let h = ''; try { h = decodeURIComponent((location.hash.match(/node=([^&]+)/) ||
 if (h && get(h)) select(h, { push: false }); else if (ROOT) select(ROOT, { center: false, push: false });
 })();
 </script>
+<script>__TOOLTIP__</script>
 <script>
 // only while the panel is running; no-cors because a dashboard opened from disk cannot read its answer
 (() => {
