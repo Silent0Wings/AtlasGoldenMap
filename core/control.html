@@ -1,0 +1,1004 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golden Map Atlas · Control</title>
+<style>
+:root {
+  --bg: #f6f5f1; --panel: #ffffff; --panel-2: #f0eee8; --line: #dedbd2; --text: #1d1c1a; --muted: #6b6860;
+  --accent: #0f6b6b; --accent-soft: #d8ecea; --hit: #e8890c; --warn: #b4441c;
+  --st-new: #2563c9; --st-changed: #b86e00; --st-match: #2e7d4f; --st-volatile: #77736a;
+  --st-stale: #6b4fc4; --st-unsettled: #a33d74; --on-st: #ffffff;
+  --ok: #2e7d4f; --bad: #b4321c;
+  --edge: #b9b5aa; --shadow: 0 1px 2px rgb(0 0 0 / .06), 0 4px 16px rgb(0 0 0 / .06);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121315; --panel: #1b1c1f; --panel-2: #232428; --line: #34363b; --text: #ecebe7; --muted: #9d9b95;
+    --accent: #5cc4bd; --accent-soft: #1f3b3a; --hit: #ffad3b; --warn: #ff8a65;
+    --st-new: #79a8f2; --st-changed: #f0a436; --st-match: #5fc38a; --st-volatile: #8e8b84;
+    --st-stale: #b59cf7; --st-unsettled: #f08bb5; --on-st: #121315;
+    --ok: #5fc38a; --bad: #ff7b6b;
+    --edge: #4a4c52; --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 6px 20px rgb(0 0 0 / .35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121315; --panel: #1b1c1f; --panel-2: #232428; --line: #34363b; --text: #ecebe7; --muted: #9d9b95;
+  --accent: #5cc4bd; --accent-soft: #1f3b3a; --hit: #ffad3b; --warn: #ff8a65;
+  --st-new: #79a8f2; --st-changed: #f0a436; --st-match: #5fc38a; --st-volatile: #8e8b84;
+  --st-stale: #b59cf7; --st-unsettled: #f08bb5; --on-st: #121315;
+  --ok: #5fc38a; --bad: #ff7b6b;
+  --edge: #4a4c52; --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 6px 20px rgb(0 0 0 / .35);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text); font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; min-height: 100vh; }
+button, input, select { font: inherit; color: inherit; }
+code { font: 12px ui-monospace, "Cascadia Code", Consolas, monospace; background: var(--panel-2); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+[hidden] { display: none !important; }
+
+/* header */
+header.top { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.brand img { width: 26px; height: 26px; flex-shrink: 0; }
+.brand h1 { font-size: 16px; margin: 0; white-space: nowrap; }
+.brand h1 span { color: var(--muted); font-weight: 400; }
+.app { color: var(--muted); font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.chip { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 3px 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
+.chip b { font-weight: 600; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; background: var(--muted); }
+.dot.ok { background: var(--ok); } .dot.bad { background: var(--bad); } .dot.warn { background: var(--warn); } .dot.muted { background: var(--st-volatile); }
+.header-end { margin-left: auto; }
+
+/* buttons + fields */
+.btn { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 7px 12px; cursor: pointer; font-size: 13px; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; }
+.btn:hover:not(:disabled) { border-color: var(--muted); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+.btn.ok { color: var(--ok); border-color: var(--ok); }
+.btn.bad { color: var(--bad); border-color: var(--bad); }
+.btn:focus-visible, .field:focus, input[type="checkbox"]:focus-visible, input[type="radio"]:focus-visible, summary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); border-color: var(--accent); }
+.field { border: 1px solid var(--line); border-radius: 8px; background: var(--bg); padding: 7px 9px; width: 100%; max-width: 100%; outline: none; }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width: 15px; height: 15px; flex-shrink: 0; margin: 0; }
+.check { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
+.stack { display: grid; gap: 4px; }
+.stack small, .muted { color: var(--muted); font-size: 12px; }
+.muted { margin: 0; }
+
+/* layout */
+main { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; gap: 18px; }
+section.group > h2, section.panel > h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 10px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.card h3 { font-size: 15px; margin: 0; }
+.card p { margin: 0; font-size: 13px; }
+.card .btn { align-self: flex-start; margin-top: auto; }
+.card .btn.wide { align-self: stretch; }
+.card label.check { font-size: 13px; }
+.shared { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 10px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+.need { color: var(--muted); font-size: 12px !important; }
+.err { color: var(--bad); font-size: 12px !important; overflow-wrap: anywhere; }
+.warn { color: var(--warn); }
+
+/* next step */
+.next { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px; }
+.next h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); margin: 0; }
+.next p { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+.next .btn { justify-self: start; }
+#msg { margin: 0; background: var(--panel); border: 1px solid var(--bad); border-left-width: 3px; border-radius: 8px; padding: 8px 12px; color: var(--bad); font-size: 13px; overflow-wrap: anywhere; }
+#conn { margin: 0; background: var(--panel); border: 1px solid var(--warn); border-radius: 8px; padding: 8px 12px; color: var(--warn); font-size: 13px; }
+
+/* results */
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow); display: grid; gap: 10px; min-width: 0; }
+.panel h3 { font-size: 13px; margin: 8px 0 0; }
+.panel p { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 8px; }
+.tile { border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; background: var(--panel-2); display: grid; gap: 2px; min-width: 0; }
+.tile .tk { font-size: 11px; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+.tile b { font-size: 22px; font-variant-numeric: tabular-nums; }
+.tile .td { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.items { margin: 0; padding: 0 0 0 18px; font-size: 13px; display: grid; gap: 6px; }
+.items li { overflow-wrap: anywhere; }
+.items code { font-size: 11px; }
+
+/* pills */
+.pill { display: inline-block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; padding: 1px 7px; border-radius: 4px; border: 1px solid var(--line); line-height: 16px; white-space: nowrap; color: var(--muted); }
+.pill.job-running { color: var(--accent); border-color: var(--accent); }
+.pill.job-done { color: var(--ok); border-color: var(--ok); }
+.pill.job-failed { color: var(--bad); border-color: var(--bad); }
+.pill.job-stopped { color: var(--warn); border-color: var(--warn); }
+
+/* live output */
+.out { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; min-width: 0; }
+.out-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.out-head h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0; font-weight: 600; }
+.out-head .jl { font-weight: 600; font-size: 13px; overflow-wrap: anywhere; min-width: 0; }
+.out-head .jt { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.out-head .btns { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+.out .note { font-size: 12px; color: var(--warn); margin: 8px 12px 0; }
+.log { margin: 0; background: #101114; color: #e7e6e1; padding: 10px 12px; max-height: 42vh; min-height: 120px; overflow: auto; font: 12px/1.45 ui-monospace, "Cascadia Code", Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* dialogs */
+dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); padding: 18px; }
+dialog::backdrop { background: rgb(0 0 0 / .45); }
+dialog h2 { font-size: 17px; margin: 0 0 8px; }
+dialog p { margin: 0 0 10px; font-size: 13px; }
+dialog form { display: grid; gap: 12px; }
+dialog fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px 10px; margin: 0; display: grid; gap: 8px; }
+dialog legend { font-size: 13px; padding: 0 4px; }
+dialog label { font-size: 13px; }
+.dlg-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.dlg-err { color: var(--bad); font-size: 13px; margin: 0; overflow-wrap: anywhere; }
+.form-note { background: var(--panel-2); border-radius: 8px; padding: 8px 10px; font-size: 12px; color: var(--muted); }
+
+#toast { position: fixed; right: 16px; top: 12px; z-index: 60; max-width: min(440px, calc(100vw - 32px)); background: var(--panel); color: var(--text); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; padding: 9px 12px; box-shadow: var(--shadow); font-size: 13px; opacity: 0; transform: translateY(-6px); transition: opacity .15s, transform .15s; pointer-events: none; }
+#toast.show { opacity: 1; transform: none; }
+
+.stopped { max-width: 520px; margin: 15vh auto 0; padding: 0 16px; display: grid; gap: 10px; }
+.stopped h1 { font-size: 20px; margin: 0; }
+.stopped p { margin: 0; color: var(--muted); }
+
+@media (max-width: 599px) {
+  main { padding: 16px; }
+  header.top { padding: 10px 16px; }
+  .header-end { margin-left: 0; }
+  .brand h1 { white-space: normal; }
+  .cards { grid-template-columns: minmax(0, 1fr); }
+  .out-head .btns { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <img src="/icon.png" alt="" width="26" height="26">
+    <h1>Golden Map Atlas <span>· Control</span></h1>
+  </div>
+  <div class="app" id="appTitle">Checking…</div>
+  <div class="chips" id="chips" aria-label="Status"></div>
+  <div class="header-end">
+    <button class="btn" type="button" data-act="shutdown" title="Stops the control panel. Closing this tab does not do that.">Shut down</button>
+  </div>
+</header>
+
+<main>
+  <p id="conn" role="status" hidden>Lost contact with the control panel. Keep this tab open. If it stays this way, double-click script\panel.bat again.</p>
+
+  <section class="next" aria-labelledby="nextH">
+    <h2 id="nextH">Next step</h2>
+    <p id="nextText">Checking the panel…</p>
+    <div id="nextBtn"></div>
+  </section>
+
+  <p id="msg" role="alert" hidden></p>
+
+  <section class="group" aria-labelledby="gSetup">
+    <h2 id="gSetup">Setup</h2>
+    <div class="cards">
+      <article class="card">
+        <h3>Set up</h3>
+        <p>Installs what the atlas needs to run, including the test browser. Downloads can take a few minutes. If the app is not configured yet, it stops after this step and you continue with Configure.</p>
+        <p class="need" hidden></p><p class="err" role="alert" hidden></p>
+        <button class="btn primary" type="button" data-act="setup">Set up</button>
+      </article>
+      <article class="card">
+        <h3>Install dependencies</h3>
+        <p>Installs the packages and the test browser if they are missing. Safe to run again. Does not touch your configuration.</p>
+        <p class="need" hidden></p><p class="err" role="alert" hidden></p>
+        <button class="btn" type="button" data-act="deps">Install dependencies</button>
+      </article>
+      <article class="card">
+        <h3>Configure</h3>
+        <p>Opens a short form with the same questions as the terminal setup: app name, how the app is run, its address, dark mode and phone view. Saves the atlas config file. If one exists, it is backed up before it is replaced.</p>
+        <p class="need" hidden></p><p class="err" role="alert" hidden></p>
+        <button class="btn" type="button" data-act="configure">Configure</button>
+      </article>
+    </div>
+  </section>
+
+  <section class="group" aria-labelledby="gCap">
+    <h2 id="gCap">Capture and verify</h2>
+    <div class="shared">
+      <label class="stack">Filter by name
+        <input id="grep" class="field" type="text" maxlength="200" autocomplete="off" placeholder="All screenshots">
+        <small>Only screenshots whose name contains this text. Leave empty for all. Used by the four cards below.</small>
+      </label>
+      <label class="stack">Variant
+        <select id="variant" class="field"><option value="">All variants</option></select>
+        <small>For example light or dark. Leave on All variants for everything.</small>
+      </label>
+    </div>
+    <div class="cards">
+      <article class="card">
+        <h3>Capture</h3>
+        <p>Takes new screenshots of the app and compares them with the goldens. The first capture also runs Stabilize, so unsettled screenshots show up early. Approves nothing.</p>
+        <label class="check"><input id="noStab" type="checkbox"> Skip the automatic Stabilize step on the first capture</label>
+        <p class="need" hidden></p><p class="err" role="alert" hidden></p>
+        <button class="btn" type="button" data-act="capture">Capture</button>
+      </article>
+      <article class="card">
+        <h3>Check</h3>
+        <p>Compares the app with the approved goldens and lists any differences. Approves nothing and changes no goldens.</p>
+        <p class="need" hidden></p><p class="err" role="alert" hidden></p>
+        <button class="btn" type="button" data-act="check">Check</button>
+      </article>
+      <article class="card">
+        <h3>Stabilize</h3>
+        <p>Takes the screenshots several more times and lists the ones that do not come out the same twice. Takes a while. Approves nothing.</p>
+        <label class="stack">Number of extra runs (2 to 10)
+          <input id="stRuns" class="field" type="number" min="2" max="10" step="1" value="3">
+        </label>
+        <label class="check"><input id="stKeep" type="checkbox"> Keep the extra runs' screenshots so you can look at them</label>
+        <label class="check"><input id="stAll" type="checkbox"> Show every screenshot in the result, not only the ones that differ</label>
+        <p class="need" hidden></p><p class="err" role="alert" hidden></p>
+        <button class="btn" type="button" data-act="stabilize">Stabilize</button>
+      </article>
+      <article class="card">
+        <h3>Build atlas and open</h3>
+        <p>Captures everything, rebuilds the dashboard and opens it in your browser. Approves nothing.</p>
+        <p class="need" hidden></p><p class="err" role="alert" hidden></p>
+        <button class="btn" type="button" data-act="atlas">Build atlas and open</button>
+      </article>
+    </div>
+  </section>
+
+  <section class="group" aria-labelledby="gAppr">
+    <h2 id="gAppr">Approve</h2>
+    <div class="cards">
+      <article class="card">
+        <h3>Approve new</h3>
+        <p>Makes every new screenshot (one with no golden yet) an approved golden. You are asked to confirm first, and the count is shown.</p>
+        <p class="need" hidden></p><p class="err" role="alert" hidden></p>
+        <button class="btn ok" type="button" data-act="approve-new">Approve new</button>
+      </article>
+      <article class="card">
+        <h3>Approve all</h3>
+        <p>Approves every new, changed, stale or unsettled screenshot at once, replacing the old goldens. You are asked to confirm first. To check each one, use Open review.</p>
+        <p class="need" hidden></p><p class="err" role="alert" hidden></p>
+        <button class="btn ok" type="button" data-act="approve-all">Approve all</button>
+      </article>
+      <article class="card">
+        <h3>Open review</h3>
+        <p>Opens a page where you compare each screenshot with its golden, then approve or deny it one at a time. It runs only on this computer.</p>
+        <p id="reviewText" class="need">Not running.</p>
+        <p class="err" role="alert" hidden></p>
+        <a id="reviewLink" class="btn primary" href="#" target="_blank" rel="noopener" hidden>Open review page</a>
+        <button class="btn" type="button" data-act="review-start">Open review</button>
+        <button class="btn" type="button" data-act="review-stop" hidden>Stop review</button>
+      </article>
+    </div>
+  </section>
+
+  <section class="group" aria-labelledby="gExp">
+    <h2 id="gExp">Explore</h2>
+    <div class="cards">
+      <article class="card">
+        <h3>Rebuild dashboard</h3>
+        <p>Rebuilds the dashboard from the latest results and opens it in your browser.</p>
+        <p class="need" hidden></p><p class="err" role="alert" hidden></p>
+        <button class="btn" type="button" data-act="build">Rebuild dashboard</button>
+      </article>
+      <article class="card">
+        <h3>Open dashboard</h3>
+        <p>Opens the dashboard from the last build in your browser.</p>
+        <p class="need" hidden></p><p class="err" role="alert" hidden></p>
+        <button class="btn" type="button" data-act="open-dash">Open dashboard</button>
+      </article>
+      <article class="card">
+        <h3>Open test report</h3>
+        <p>Opens the test report from the last Check or Capture in your browser.</p>
+        <p class="need" hidden></p><p class="err" role="alert" hidden></p>
+        <button class="btn" type="button" data-act="report">Open test report</button>
+      </article>
+      <article class="card">
+        <h3>Crawl links</h3>
+        <p>Visits the app and follows its links to list the pages it finds, then saves that list. Takes no screenshots and approves nothing.</p>
+        <p class="need" hidden></p><p class="err" role="alert" hidden></p>
+        <button class="btn" type="button" data-act="crawl">Crawl links</button>
+      </article>
+      <article class="card">
+        <h3>Discover navigation</h3>
+        <p>Looks through the app's menus and navigation and saves the links it finds. Takes no screenshots and approves nothing.</p>
+        <p class="need" hidden></p><p class="err" role="alert" hidden></p>
+        <button class="btn" type="button" data-act="discover">Discover navigation</button>
+      </article>
+    </div>
+  </section>
+
+  <section class="group" aria-labelledby="gMaint">
+    <h2 id="gMaint">Maintenance</h2>
+    <div class="cards">
+      <article class="card">
+        <h3>Clean</h3>
+        <p>Deletes the generated results: review data, screenshots, reports, the dashboard and the crawl lists. Approved goldens are kept unless you tick the box below. Your app's code is never touched.</p>
+        <label class="check"><input id="cleanGold" type="checkbox"> Also delete goldens (every approved screenshot). You will be asked to type a confirmation.</label>
+        <p class="need" hidden></p><p class="err" role="alert" hidden></p>
+        <button class="btn bad" type="button" data-act="clean">Clean</button>
+      </article>
+    </div>
+  </section>
+
+  <section class="panel" id="results" aria-labelledby="gRes">
+    <h2 id="gRes">Results</h2>
+    <div id="resBody"></div>
+  </section>
+
+  <section class="out" id="out" aria-labelledby="gOut" hidden>
+    <div class="out-head">
+      <h2 id="gOut">Live output</h2>
+      <span class="pill" id="jobStatus"></span>
+      <span class="jl" id="jobLabel"></span>
+      <span class="jt" id="jobTime"></span>
+      <div class="btns">
+        <button class="btn bad" type="button" data-act="stop" title="Stops the running job and everything it started.">Stop the job</button>
+        <button class="btn" type="button" data-act="copy">Copy output</button>
+      </div>
+    </div>
+    <p class="note" id="outNote" hidden>Older output was dropped to keep this page light. The log shows the latest part.</p>
+    <pre class="log" id="log" tabindex="0" aria-label="Job output"></pre>
+  </section>
+</main>
+
+<dialog id="cfgDlg" aria-labelledby="cfgH">
+  <form id="cfgForm">
+    <h2 id="cfgH">Configure the atlas</h2>
+    <p class="form-note">These are the same questions as the terminal setup. The form starts from the standard answers. It does not read your current config.</p>
+    <p id="cfgDemo" class="form-note" hidden>This config points at the demo site. The demo goldens are only examples: when you are done, use Clean with "Also delete goldens".</p>
+
+    <label class="stack">App name
+      <input id="cfgName" class="field" name="title" type="text" maxlength="500" required placeholder="For example: My shop">
+    </label>
+
+    <fieldset>
+      <legend>How is the app served?</legend>
+      <label class="check"><input type="radio" name="kind" value="d" checked> Dev server command: the panel starts the app with a command, such as npm run dev</label>
+      <label class="check"><input type="radio" name="kind" value="s"> Static folder: a built copy of the app in a folder</label>
+      <label class="check"><input type="radio" name="kind" value="r"> Already running: the app is open at a web address</label>
+    </fieldset>
+
+    <label class="stack" data-kind="d" hidden>Dev server command
+      <input id="cfgCmd" class="field" type="text" maxlength="500" value="npm run dev">
+    </label>
+    <label class="stack" data-kind="d" hidden>Run it in this folder (relative to the atlas folder)
+      <input id="cfgCwd" class="field" type="text" maxlength="500" value="..">
+    </label>
+    <label class="stack" data-kind="d r">
+      <span id="cfgUrlLabel">URL it serves</span>
+      <input id="cfgUrl" class="field" type="url" maxlength="500" value="http://localhost:5173">
+    </label>
+    <label class="stack" data-kind="s" hidden>Static folder (relative to the atlas folder)
+      <input id="cfgDir" class="field" type="text" maxlength="500" value="../dist">
+    </label>
+    <label class="stack" data-kind="s" hidden>Port
+      <input id="cfgPort" class="field" type="text" inputmode="numeric" maxlength="5" value="8091">
+    </label>
+
+    <label class="stack">Start page path
+      <input id="cfgStart" class="field" type="text" maxlength="500" value="/">
+    </label>
+
+    <label class="check"><input id="cfgDark" type="checkbox" checked> The app has a dark mode</label>
+    <label class="stack" id="cfgThemeWrap">Theme storage key (optional)
+      <input id="cfgTheme" class="field" type="text" maxlength="500" value="">
+      <small class="muted">The name the app uses in localStorage for its theme. Leave empty if the app follows the operating system setting.</small>
+    </label>
+    <label class="check"><input id="cfgMobile" type="checkbox"> Also capture a phone-sized view</label>
+    <label class="check"><input id="cfgCrawl" type="checkbox" checked> Find pages by following links (the crawler)</label>
+
+    <label class="check" id="cfgReplaceWrap" hidden><input id="cfgReplace" type="checkbox"> Replace the existing config (a backup is kept)</label>
+
+    <p id="cfgErr" class="dlg-err" role="alert" hidden></p>
+    <div class="dlg-actions">
+      <button class="btn" type="button" id="cfgCancel">Cancel</button>
+      <button class="btn primary" type="submit" id="cfgSave">Save config</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="confirmDlg" aria-label="Confirm"></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+
+const $ = id => document.getElementById(id);
+const PATTERN = /^[\w :.\/@-]*$/;
+const MAX_OUT = 2 * 1024 * 1024;
+const FORCE_TEXT = 'Force: approve even if the last run had failures or shots never settled. Use it only when you know those problems do not matter.';
+const JOB_ACTS = new Set(['setup', 'deps', 'config', 'capture', 'check', 'stabilize', 'atlas', 'approve-new', 'approve-all', 'build', 'open-dash', 'report', 'crawl', 'discover', 'clean']);
+const S = {
+  state: null, connOk: null, job: null, jobId: null, offset: 0, out: '', truncated: false,
+  posting: false, gen: 0, loopT: 0, urlDirty: false, variantSig: '', nextKey: '',
+};
+
+// element builder: text always goes in as a text node, never as HTML
+const h = (tag, props = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (v === false || v == null) continue;
+    if (k === 'text') e.textContent = v;
+    else if (k === 'class') e.className = v;
+    else if (v === true) e.setAttribute(k, '');
+    else e.setAttribute(k, v);
+  }
+  for (const c of kids.flat()) if (c != null && c !== false) e.append(c instanceof Node ? c : String(c));
+  return e;
+};
+const plural = (n, w) => `${n ?? 0} ${w}${n === 1 ? '' : 's'}`;
+const fmtDate = s => { const t = Date.parse(s); return Number.isNaN(t) ? String(s ?? '—') : new Date(t).toLocaleString(); };
+const elapsed = job => {
+  if (!job?.startedAt) return '';
+  const end = job.endedAt ? Date.parse(job.endedAt) : Date.now();
+  const s = Math.max(0, Math.round((end - Date.parse(job.startedAt)) / 1000));
+  const m = Math.floor(s / 60);
+  return m ? `${m} min ${s % 60} s` : `${s} s`;
+};
+const jobStatus = job => {
+  if (job.status === 'running') return 'Running';
+  if (job.status === 'done') return job.exitCode ? `Finished with exit code ${job.exitCode}` : 'Finished';
+  if (job.status === 'failed') return job.exitCode != null ? `Failed (exit code ${job.exitCode})` : 'Failed';
+  if (job.status === 'stopped') return 'Stopped';
+  return String(job.status ?? '');
+};
+const runningNow = () => S.posting || S.job?.status === 'running' || S.state?.job?.status === 'running';
+const openCount = () => { const r = S.state?.records ?? {}; return (r.new ?? 0) + (r.changed ?? 0) + (r.stale ?? 0) + (r.unsettled ?? 0); };
+
+async function api(path, opts = {}) {
+  const init = { cache: 'no-store', ...opts };
+  if (opts.body !== undefined) init.headers = { 'content-type': 'application/json' };
+  const res = await fetch(path, init);
+  let data = null;
+  try { data = await res.json(); } catch {}
+  if (!res.ok) {
+    const err = new Error(data?.error || `${res.status} ${res.statusText}`);
+    err.status = res.status;
+    throw err;
+  }
+  return data ?? {};
+}
+
+let toastT = 0;
+function toast(msg, ms = 5000) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+const inlineErr = (btn, text) => {
+  const box = btn?.closest('.card')?.querySelector('.err') ?? $('msg');
+  box.textContent = text;
+  box.hidden = false;
+};
+const clearErr = btn => { const box = btn?.closest('.card')?.querySelector('.err'); if (box) box.hidden = true; };
+
+/* ---------- what can be done now ---------- */
+// reason a job button cannot run yet ('' = it can)
+function gate(act) {
+  const s = S.state;
+  if (!s) return 'Checking the panel…';
+  const ready = s.nodeOk && s.depsInstalled && s.configExists;
+  const rec = s.records ?? {};
+  switch (act) {
+    case 'setup': case 'deps': case 'configure':
+      return s.nodeOk ? '' : 'Needs Node.js 18 or newer (see the Next step box).';
+    case 'capture': case 'check': case 'stabilize': case 'atlas': case 'build': case 'crawl': case 'discover':
+      return ready ? '' : 'Needs Set up and Configure first.';
+    case 'approve-new': return (rec.new ?? 0) > 0 ? '' : 'No new screenshots to approve.';
+    case 'approve-all': return openCount() > 0 ? '' : 'Nothing to approve: every screenshot already matches its golden.';
+    case 'open-dash': return s.dashboardExists ? '' : 'No dashboard yet. Rebuild the dashboard or Build atlas first.';
+    case 'report': return s.reportExists ? '' : 'No test report yet. Run Check or Capture first.';
+    default: return '';
+  }
+}
+
+// one primary button for the state of the app
+function nextStep(s) {
+  if (!s.nodeOk) return { text: `This panel needs Node.js 18 or newer, and this computer has ${s.node || 'an older version'}. Install a newer Node.js from nodejs.org, then double-click script\\panel.bat again.` };
+  if (!s.depsInstalled) return { text: 'Install what the atlas needs. Press Set up. Downloads can take a few minutes.', act: 'setup', label: 'Set up' };
+  if (!s.configExists) return { text: 'Tell the atlas about your app: its name, how it is run and where it is. Press Configure and fill in the short form.', act: 'configure', label: 'Configure' };
+  const rec = s.records ?? {};
+  if (!rec.total) return { text: 'No screenshots yet. Press Capture to take them. The first capture also finds the screenshots that are not steady.', act: 'capture', label: 'Capture' };
+  const unstable = s.stabilize?.unstable ?? 0;
+  if (unstable > 0) return { text: `${plural(unstable, 'screenshot')} never settled, so they cannot be approved safely. The Results section below explains how to fix it.`, act: 'see-results', label: 'See stabilize result' };
+  if ((rec.new ?? 0) > 0 && !s.goldens) return { text: `Nothing is approved yet. Approve the ${rec.new} new screenshot(s) to make them the starting goldens.`, act: 'approve-new', label: 'Approve new screenshots' };
+  if ((rec.changed ?? 0) + (rec.stale ?? 0) + (rec.unsettled ?? 0) > 0) return { text: 'Some screenshots differ from their goldens or need a look. Open review to compare each one, then approve or deny it.', act: 'review-open', label: 'Open review' };
+  return { text: 'Everything matches the approved goldens. Press Check to confirm again.', act: 'check', label: 'Check' };
+}
+
+/* ---------- rendering ---------- */
+function renderState() {
+  const s = S.state;
+  const busy = runningNow();
+
+  $('appTitle').textContent = s ? (s.configTitle ?? 'No app set up yet') : 'Checking…';
+  const chips = $('chips');
+  chips.replaceChildren();
+  if (s) {
+    const chip = (label, value, tone) => chips.append(h('span', { class: 'chip' }, h('span', { class: `dot ${tone}` }), `${label}: `, h('b', { text: value })));
+    chip('Node', s.node || '—', s.nodeOk ? 'ok' : 'bad');
+    chip('Dependencies', s.depsInstalled ? 'installed' : 'missing', s.depsInstalled ? 'ok' : 'warn');
+    chip('Config', s.configExists ? 'ready' : 'missing', s.configExists ? 'ok' : 'warn');
+    chip('Goldens', String(s.goldens ?? 0), s.goldens ? 'ok' : 'muted');
+    if (s.isDemo) chip('Demo', 'example app', 'warn');
+  }
+  $('conn').hidden = S.connOk !== false;
+
+  const next = s ? nextStep(s) : { text: 'Checking the panel…' };
+  $('nextText').textContent = next.text;
+  const key = next.act ? `${next.act}|${next.label}` : '';
+  if (key !== S.nextKey) {
+    S.nextKey = key;
+    $('nextBtn').replaceChildren();
+    if (next.act) $('nextBtn').append(h('button', { class: 'btn primary', type: 'button', 'data-act': next.act }, next.label));
+  }
+
+  const variants = s?.variants ?? [];
+  const sig = variants.join('\u0001');
+  if (sig !== S.variantSig) {
+    S.variantSig = sig;
+    const keep = $('variant').value;
+    $('variant').replaceChildren(h('option', { value: '' }, 'All variants'), ...variants.map(v => h('option', { value: v }, v)));
+    $('variant').value = variants.includes(keep) ? keep : '';
+  }
+
+  const rv = s?.review ?? {};
+  const port = Number(rv.port) || 8097;
+  $('reviewText').textContent = rv.running
+    ? (rv.external
+      ? `Running at 127.0.0.1:${port}, but it was started outside this panel, so it cannot be stopped from here.`
+      : `Running at 127.0.0.1:${port}. It stops when you press Stop review or shut the panel down.`)
+    : 'Not running.';
+  const link = $('reviewLink');
+  link.hidden = !rv.running;
+  link.href = `http://127.0.0.1:${port}/`;
+
+  for (const b of document.querySelectorAll('button[data-act]')) {
+    const act = b.dataset.act;
+    if (act === 'copy' || act === 'shutdown' || act === 'see-results' || act === 'review-open') { b.disabled = act === 'review-open' ? S.posting : false; continue; }
+    if (act === 'review-start') { b.hidden = !!rv.running; b.disabled = S.posting; continue; }
+    if (act === 'review-stop') { b.hidden = !(rv.running && !rv.external); b.disabled = S.posting; continue; }
+    if (act === 'stop') { b.disabled = S.posting || !busy; continue; }
+    const reason = busy ? 'A job is running. Wait for it to finish, or stop it under Live output.' : gate(act);
+    b.disabled = !!reason || S.posting;
+    const need = b.closest('.card')?.querySelector('.need');
+    if (need) { need.textContent = reason; need.hidden = !reason; }
+  }
+}
+
+function renderResults() {
+  const box = $('resBody');
+  box.replaceChildren();
+  const s = S.state;
+  if (!s) return;
+  const rec = s.records ?? {};
+  const sum = s.summary;
+  const stab = s.stabilize;
+  const fails = sum?.failures ?? [];
+  const flaky = sum?.flaky ?? [];
+  const warns = sum?.warnings ?? [];
+
+  if (!rec.total) {
+    box.append(h('p', { class: 'muted', text: 'No results yet. Press Capture to take the first screenshots.' }));
+  } else {
+    const tiles = [
+      ['VISUAL', rec.changed ?? 0, 'The screenshot looks different from its golden.'],
+      ['STALE', rec.stale ?? 0, 'The golden was made before a config change.'],
+      ['UNSETTLED', rec.unsettled ?? 0, 'The screen keeps changing, so it cannot be compared.'],
+      ['INFRA', fails.filter(f => f.class === 'infra').length, 'The test could not run (timeouts, connection problems). Not a visual difference.'],
+      ['FLAKY', flaky.length, 'Failed once, then passed on retry.'],
+      ['NEW', rec.new ?? 0, 'No golden yet. Waiting for approval.'],
+    ];
+    box.append(h('div', { class: 'tiles' }, tiles.map(([k, n, d]) =>
+      h('div', { class: 'tile' }, h('span', { class: 'tk', text: k }), h('b', { text: String(n) }), h('span', { class: 'td', text: d })))));
+  }
+
+  box.append(h('p', { class: 'muted' }, sum
+    ? `Last run: ${fmtDate(sum.finishedAt)} · ${sum.status ?? 'unknown'} · ${plural(sum.total ?? 0, 'test')}`
+    : 'Last run: none recorded yet.'));
+
+  if (fails.length) {
+    box.append(h('h3', { text: `Failures (${fails.length})` }));
+    box.append(h('ul', { class: 'items' }, fails.slice(0, 20).map(f =>
+      h('li', {}, h('code', { text: `${f.class ?? ''} · ${f.variant ?? ''} · ${f.id ?? ''}` }), h('div', { text: f.message ?? '' })))));
+    if (fails.length > 20) box.append(h('p', { class: 'muted', text: `+${fails.length - 20} more in review/run-summary.json.` }));
+  }
+  if (warns.length) {
+    box.append(h('h3', { text: `Warnings (${warns.length})` }));
+    box.append(h('ul', { class: 'items' }, warns.slice(0, 20).map(w =>
+      h('li', {}, h('code', { text: `${w.variant ?? ''} · ${w.id ?? ''}` }), h('div', { text: w.message ?? '' })))));
+    if (warns.length > 20) box.append(h('p', { class: 'muted', text: `+${warns.length - 20} more in review/run-summary.json.` }));
+  }
+  if (flaky.length) {
+    box.append(h('h3', { text: `Flaky (${flaky.length})` }));
+    box.append(h('ul', { class: 'items' }, flaky.slice(0, 20).map(f =>
+      h('li', {}, h('code', { text: `${f.variant ?? ''} · ${f.id ?? ''}` }), h('div', { text: `Passed on retry (retried ${f.retries ?? 0} time(s)).` })))));
+  }
+
+  box.append(h('h3', { text: 'Stabilize result' }));
+  if (!stab) {
+    box.append(h('p', { class: 'muted', text: 'Stabilize has not run yet. It takes the screenshots several more times and lists the ones that do not come out the same twice.' }));
+  } else {
+    box.append(h('p', { text: `Ran ${plural(stab.runs, 'extra run')} on ${fmtDate(stab.generatedAt)}. ${stab.unstable ?? 0} of ${plural(stab.total, 'screenshot')} never settled.` }));
+    if (stab.unstable > 0) {
+      box.append(h('p', { class: 'warn', text: 'How to fix: something in those screenshots changes on its own, such as a clock, an animation, a spinner or live data. Hide or freeze that part in the app, or leave it out of the screenshot. Then press Capture and Stabilize again. Approving them is refused unless you use Force.' }));
+    }
+  }
+}
+
+function renderJob() {
+  const job = S.job ?? S.state?.job ?? null;
+  $('out').hidden = !job;
+  if (!job) return;
+  $('jobLabel').textContent = job.label || job.action || '';
+  const st = $('jobStatus');
+  st.textContent = jobStatus(job);
+  st.className = `pill job-${job.status}`;
+  $('jobTime').textContent = elapsed(job);
+  $('outNote').hidden = !S.truncated;
+  const pre = $('log');
+  const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 24;
+  pre.textContent = S.out || (job.status === 'running' ? 'Waiting for output…' : 'No output.');
+  if (atBottom) pre.scrollTop = pre.scrollHeight;
+}
+
+function renderAll() {
+  renderState();
+  renderResults();
+  renderJob();
+}
+
+/* ---------- polling ---------- */
+async function pollJob(id) {
+  const since = S.jobId === id ? S.offset : 0;
+  const r = await api(`/api/job?since=${since}`);
+  if (!r.job) return;
+  if (since === 0) S.out = '';
+  S.out = (S.out + (r.output || '')).slice(-MAX_OUT);
+  S.offset = r.offset ?? S.offset;
+  S.jobId = r.job.id;
+  S.job = r.job;
+  S.truncated = !!r.truncated;
+}
+
+// one chain of timers: 700 ms while a job runs, 3 s otherwise. A new gen cancels the older chain.
+async function tick() {
+  const gen = ++S.gen;
+  let next = 3000;
+  try {
+    S.state = await api('/api/state');
+    S.connOk = true;
+    const j = S.state.job;
+    if (!j) {
+      S.job = null;
+    } else if (j.status === 'running' || j.id !== S.jobId || S.job?.status === 'running') {
+      await pollJob(j.id);
+    }
+    if (S.job?.status === 'running') next = 700;
+  } catch {
+    S.connOk = false;
+  }
+  renderAll();
+  if (gen === S.gen) S.loopT = setTimeout(tick, next);
+}
+function kick() { clearTimeout(S.loopT); tick(); }
+
+/* ---------- jobs ---------- */
+function scope() {
+  const o = {};
+  const g = $('grep').value.trim();
+  const p = $('variant').value;
+  if (g) o.grep = g;
+  if (p) o.project = p;
+  return o;
+}
+function scopeError() {
+  const g = $('grep').value.trim();
+  return g.length > 200 || !PATTERN.test(g)
+    ? 'Filter by name can only use letters, digits, spaces and . : / @ - _ (up to 200 characters).'
+    : '';
+}
+
+// starts a job; onErr gets the server's message (409: a job is already running, 400: invalid)
+async function startJob(action, options, label, onErr) {
+  S.posting = true;
+  renderState();
+  try {
+    const r = await api('/api/run', { method: 'POST', body: JSON.stringify({ action, options }) });
+    S.job = r.job;
+    S.jobId = r.job.id;
+    S.out = '';
+    S.offset = 0;
+    S.truncated = false;
+    renderJob();
+    toast(`Started: ${label}. Progress shows under Live output.`);
+    $('out').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return true;
+  } catch (e) {
+    onErr(e.message);
+    return false;
+  } finally {
+    S.posting = false;
+    renderState();
+    kick();
+  }
+}
+function jobFrom(btn, action, label, options = {}) {
+  clearErr(btn);
+  return startJob(action, options, label, msg => inlineErr(btn, msg));
+}
+function scoped(btn, action, label, build = scope) {
+  const err = scopeError();
+  if (err) return inlineErr(btn, err);
+  clearErr(btn);
+  return jobFrom(btn, action, label, build());
+}
+
+async function reviewSet(btn, start) {
+  clearErr(btn);
+  S.posting = true;
+  renderState();
+  try {
+    await api('/api/review', { method: 'POST', body: JSON.stringify({ start }) });
+    toast(start ? 'Review started. Use the review page link to open it.' : 'Review stopped.');
+  } catch (e) {
+    inlineErr(btn, e.message);
+  } finally {
+    S.posting = false;
+    renderState();
+    kick();
+  }
+}
+
+async function stopJob() {
+  try {
+    await api('/api/stop', { method: 'POST', body: '{}' });
+    toast('Stopping the job…');
+  } catch (e) {
+    toast(e.message);
+  }
+  kick();
+}
+
+async function copyLog() {
+  try {
+    await navigator.clipboard.writeText(S.out);
+    toast('Output copied.');
+  } catch {
+    const r = document.createRange();
+    r.selectNodeContents($('log'));
+    const sel = getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+    toast('Select the text and press Ctrl+C to copy it.');
+  }
+}
+
+/* ---------- confirmation dialog ---------- */
+// resolves to {force} when confirmed, or null when cancelled
+function confirmBox({ title, paras = [], ok, danger = false, force = false, typed = '' }) {
+  return new Promise(resolve => {
+    const d = $('confirmDlg');
+    const forceEl = force ? h('input', { type: 'checkbox', id: 'cfForce' }) : null;
+    const typedEl = typed ? h('input', { class: 'field', type: 'text', autocomplete: 'off', id: 'cfTyped', 'aria-label': `Type ${typed} to confirm` }) : null;
+    const okBtn = h('button', { type: 'button', class: danger ? 'btn bad' : 'btn primary', text: ok });
+    const cancel = h('button', { type: 'button', class: 'btn', text: 'Cancel' });
+    const sync = () => { okBtn.disabled = !!typedEl && typedEl.value !== typed; };
+    if (typedEl) { typedEl.addEventListener('input', sync); sync(); }
+    const done = v => { resolve(v); if (d.open) d.close(); };
+    okBtn.addEventListener('click', () => done({ force: !!forceEl?.checked }));
+    cancel.addEventListener('click', () => done(null));
+    d.addEventListener('close', () => resolve(null), { once: true });
+    d.replaceChildren(
+      h('h2', { text: title }),
+      ...paras.map(p => h('p', { text: p })),
+      forceEl ? h('label', { class: 'check' }, forceEl, ' ', FORCE_TEXT) : null,
+      typedEl ? h('label', { class: 'stack' }, 'Type ', h('code', { text: typed }), ' to confirm', typedEl) : null,
+      h('div', { class: 'dlg-actions' }, cancel, okBtn));
+    d.showModal();
+    cancel.focus();
+  });
+}
+
+/* ---------- actions ---------- */
+async function approveNew(btn) {
+  const n = S.state?.records?.new ?? 0;
+  const r = await confirmBox({
+    title: `Approve ${plural(n, 'new screenshot')} as goldens?`,
+    paras: [
+      'Each new screenshot is copied into goldens/ and becomes the reference that future captures are compared against. Screenshots that already have a golden are not touched.',
+      'If the last run had failures, or Stabilize found shots that never settled, this is refused unless Force is checked.',
+    ],
+    ok: 'Approve new',
+    force: true,
+  });
+  if (!r) return;
+  jobFrom(btn, 'approve-new', 'Approve new', r.force ? { force: true } : {});
+}
+
+async function approveAll(btn) {
+  const n = openCount();
+  const r = await confirmBox({
+    title: `Approve all ${plural(n, 'screenshot')} as goldens?`,
+    paras: [
+      'Every new, changed, stale and unsettled screenshot becomes its golden, the reference that future captures are compared against. The old golden images for those shots are replaced.',
+      'If goldens/ is in git, the old images can be restored from there. If not, they are gone.',
+      'If the last run had failures, or shots never settled, this is refused unless Force is checked.',
+    ],
+    ok: 'Approve all',
+    force: true,
+  });
+  if (!r) return;
+  jobFrom(btn, 'approve-all', 'Approve all', r.force ? { confirm: true, force: true } : { confirm: true });
+}
+
+async function cleanAll(btn) {
+  const goldens = $('cleanGold').checked;
+  const r = await confirmBox({
+    title: goldens ? 'Delete the results and all goldens?' : 'Delete the generated results?',
+    paras: goldens
+      ? [
+        'Deletes the review data, screenshots, reports, the dashboard, the crawl lists and goldens/: every approved screenshot.',
+        'Nothing will be compared against a golden until you approve screenshots again. If goldens/ is in git, you can restore them from there. Otherwise they are gone for good.',
+        'Your app\'s code is not touched.',
+      ]
+      : [
+        'Deletes the review data, screenshots, reports, the dashboard and the crawl lists.',
+        'Approved goldens are kept. Your app\'s code is not touched. You can capture again afterwards.',
+      ],
+    ok: goldens ? 'Delete everything' : 'Delete results',
+    danger: true,
+    typed: goldens ? 'delete goldens' : '',
+  });
+  if (!r) return;
+  $('cleanGold').checked = false;
+  jobFrom(btn, 'clean', 'Clean', goldens ? { goldens: true, confirm: 'delete goldens' } : {});
+}
+
+async function shutdown() {
+  const r = await confirmBox({
+    title: 'Shut down the control panel?',
+    paras: [
+      'The panel stops. A running job is stopped, and a review page started from here is closed.',
+      'Closing this tab does not stop the panel. To use it again, double-click script\\panel.bat.',
+    ],
+    ok: 'Shut down',
+    danger: true,
+  });
+  if (!r) return;
+  try { await api('/api/shutdown', { method: 'POST', body: '{}' }); } catch {}
+  clearTimeout(S.loopT);
+  S.gen++;
+  document.body.replaceChildren(h('main', { class: 'stopped' },
+    h('h1', { text: 'Control panel stopped' }),
+    h('p', { text: 'You can close this tab.' }),
+    h('p', { text: 'To use the panel again, double-click script\\panel.bat (or run ./script/panel.sh in a terminal).' })));
+}
+
+/* ---------- configure form ---------- */
+function syncKind() {
+  const kind = document.querySelector('input[name="kind"]:checked').value;
+  for (const el of document.querySelectorAll('[data-kind]')) el.hidden = !el.dataset.kind.split(' ').includes(kind);
+  $('cfgUrlLabel').textContent = kind === 'r' ? 'App URL' : 'URL it serves';
+  if (!S.urlDirty) $('cfgUrl').value = kind === 'r' ? 'http://localhost:3000' : 'http://localhost:5173';
+}
+function syncTheme() { $('cfgThemeWrap').hidden = !$('cfgDark').checked; }
+
+function openConfig() {
+  const s = S.state ?? {};
+  $('cfgForm').reset();
+  S.urlDirty = false;
+  $('cfgErr').hidden = true;
+  $('cfgDemo').hidden = !s.isDemo;
+  $('cfgReplaceWrap').hidden = !s.configExists;
+  $('cfgReplace').required = !!s.configExists;
+  syncKind();
+  syncTheme();
+  $('cfgDlg').showModal();
+  $('cfgName').focus();
+}
+
+async function saveConfig(e) {
+  e.preventDefault();
+  const err = $('cfgErr');
+  const fail = msg => { err.textContent = msg; err.hidden = false; };
+  const kind = document.querySelector('input[name="kind"]:checked').value;
+  const title = $('cfgName').value.trim();
+  const port = $('cfgPort').value.trim();
+  const texts = [title, $('cfgCmd').value.trim(), $('cfgCwd').value.trim(), $('cfgDir').value.trim(), $('cfgStart').value.trim(), $('cfgTheme').value.trim(), $('cfgUrl').value.trim()];
+  if (texts.some(t => /[\r\n]/.test(t) || t.length > 500)) return fail('Each answer must be on one line and under 500 characters.');
+  if (!title) return fail('Give the app a name.');
+  if (!/^\d{1,5}$/.test(port) || Number(port) < 1 || Number(port) > 65535) return fail('The port must be a number from 1 to 65535.');
+  if (kind === 'd' && !$('cfgCmd').value.trim()) return fail('Enter the command that starts the app.');
+  if (kind === 's' && !$('cfgDir').value.trim()) return fail('Enter the folder that holds the built app.');
+  const baseURL = kind === 's' ? `http://127.0.0.1:${port}` : $('cfgUrl').value.trim();
+  if (kind !== 's') {
+    try { if (!/^https?:$/.test(new URL(baseURL).protocol)) throw new Error(); }
+    catch { return fail('The address must start with http:// or https://.'); }
+  }
+  const dark = $('cfgDark').checked;
+  const answers = {
+    title, kind,
+    command: $('cfgCmd').value.trim(),
+    cwd: $('cfgCwd').value.trim(),
+    staticDir: $('cfgDir').value.trim(),
+    port,
+    baseURL,
+    start: $('cfgStart').value.trim() || '/',
+    themeKey: dark ? $('cfgTheme').value.trim() : '',
+    dark,
+    mobile: $('cfgMobile').checked,
+    crawl: $('cfgCrawl').checked,
+  };
+  const options = { answers, ...($('cfgReplace').checked ? { replace: true } : {}) };
+  $('cfgSave').disabled = true;
+  const ok = await startJob('config', options, 'Configure', fail);
+  $('cfgSave').disabled = false;
+  if (ok) $('cfgDlg').close();
+}
+
+/* ---------- events ---------- */
+const ACT = {
+  setup: b => jobFrom(b, 'setup', 'Set up'),
+  deps: b => jobFrom(b, 'deps', 'Install dependencies'),
+  configure: b => { clearErr(b); openConfig(); },
+  capture: b => scoped(b, 'capture', 'Capture', () => ({ ...scope(), ...($('noStab').checked ? { noStabilize: true } : {}) })),
+  check: b => scoped(b, 'check', 'Check'),
+  atlas: b => scoped(b, 'atlas', 'Build atlas and open'),
+  stabilize: b => {
+    const runs = Number($('stRuns').value);
+    if (!Number.isInteger(runs) || runs < 2 || runs > 10) return inlineErr(b, 'The number of extra runs must be a whole number from 2 to 10.');
+    return scoped(b, 'stabilize', 'Stabilize', () => ({
+      runs,
+      ...($('stKeep').checked ? { keep: true } : {}),
+      ...($('stAll').checked ? { all: true } : {}),
+      ...scope(),
+    }));
+  },
+  'approve-new': approveNew,
+  'approve-all': approveAll,
+  'review-start': b => reviewSet(b, true),
+  'review-open': b => reviewSet(b, true),
+  'review-stop': b => reviewSet(b, false),
+  build: b => jobFrom(b, 'build', 'Rebuild dashboard'),
+  'open-dash': b => jobFrom(b, 'open', 'Open dashboard'),
+  report: b => jobFrom(b, 'report', 'Open test report'),
+  crawl: b => jobFrom(b, 'crawl', 'Crawl links'),
+  discover: b => jobFrom(b, 'discover', 'Discover navigation'),
+  clean: cleanAll,
+  stop: stopJob,
+  copy: copyLog,
+  shutdown,
+  'see-results': () => $('results').scrollIntoView({ behavior: 'smooth' }),
+};
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('button[data-act]');
+  if (!b || b.disabled) return;
+  const fn = ACT[b.dataset.act];
+  if (fn) fn(b);
+});
+document.querySelectorAll('input[name="kind"]').forEach(r => r.addEventListener('change', syncKind));
+$('cfgUrl').addEventListener('input', () => { S.urlDirty = true; });
+$('cfgDark').addEventListener('change', syncTheme);
+$('cfgCancel').addEventListener('click', () => $('cfgDlg').close());
+$('cfgForm').addEventListener('submit', saveConfig);
+setInterval(() => {
+  const job = S.job ?? S.state?.job;
+  if (job?.status === 'running') $('jobTime').textContent = elapsed(job);
+}, 1000);
+
+/* ---------- boot ---------- */
+renderAll();
+kick();
+})();
+</script>
+</body>
+</html>

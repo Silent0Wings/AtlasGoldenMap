@@ -25,6 +25,7 @@
     "open": "node core/cli.mjs run open",
     "report": "node core/cli.mjs run report",
     "clean": "node core/cli.mjs run clean",
+    "panel": "node core/control-server.mjs --open",
     "typecheck": "tsc -p tsconfig.json"
   },
   "devDependencies": {

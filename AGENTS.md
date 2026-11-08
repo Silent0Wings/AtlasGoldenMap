@@ -14,7 +14,7 @@ npm run check                                            # exit 1 unless every r
 npm run approve-new                                      # first baseline only
 ```
 
-Do not run `npm run config` (interactive), `npm run review` (keeps running until Ctrl+C), or `npm run atlas` and `npm run build` (they open a browser). `npm run clean -- --goldens` deletes goldens.
+Agents use the CLI above, not the control panel (`npm run panel`), which is for people. To write the config without prompts, use `npm run config -- --answers '<json>'`. Do not run `npm run config` (interactive), `npm run review` (keeps running until Ctrl+C), or `npm run atlas` and `npm run build` (they open a browser). `npm run clean -- --goldens` deletes goldens.
 
 ## Rules
 

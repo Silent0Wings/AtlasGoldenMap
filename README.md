@@ -40,6 +40,14 @@ The first run has no goldens, so every screen shows as `new`. The first `capture
 
 A new app needs a few more steps before its first baseline can be trusted. See [Adapting Atlas to a real app](#adapting-atlas-to-a-real-app).
 
+### Control panel
+
+Prefer buttons to commands? Double-click `script\panel.bat` (Windows), or run `./script/panel.sh` (macOS / Linux), or `npm run panel`. The panel opens in your browser. It sets up the tool, writes `atlas.config.ts` from a form, runs every mode in the table below, shows the last run's counts and failures, and opens the review UI and the dashboard. Each action shows its live output.
+
+- It listens on `127.0.0.1` only, so only this computer can reach it. It uses port 8099 (`--port N` to change it).
+- Closing the tab does not stop it. Use **Shut down** in the page to stop it and any running job.
+- It runs the same `core/cli.mjs` commands as the scripts, so nothing is hidden from the terminal.
+
 ### Requirements
 
 - **Node.js 18+** (`node -v`).
@@ -56,8 +64,9 @@ If a `.sh` wrapper reports "permission denied", run `chmod +x script/*.sh` once,
 |---|---|---|---|---|
 | setup | `script\setup.bat` | `./script/setup.sh` | `npm run setup` | Runs `deps`, then `config` if `atlas.config.ts` does not exist |
 | deps | `script\deps.bat` | `./script/deps.sh` | `npm run deps` | `npm install` (if needed) and `playwright install chromium` |
-| config | `script\config.bat` | `./script/config.sh` | `npm run config` | Interactive generator for `atlas.config.ts`; keeps a timestamped backup of the old file. `--force` skips the overwrite question. Warns if goldens exist and names `clean --goldens` |
+| config | `script\config.bat` | `./script/config.sh` | `npm run config` | Interactive generator for `atlas.config.ts`; keeps a timestamped backup of the old file. `--force` skips the overwrite question. Warns if goldens exist and names `clean --goldens`. `config --answers '<json>'` writes the same file from a JSON object of answers, with no prompts, and refuses to replace an existing config unless `--force` is given |
 | run | `script\run.bat [mode]` | `./script/run.sh [mode]` | `npm run <mode>` | Runs a mode. Without a mode it shows a menu |
+| panel | `script\panel.bat` | `./script/panel.sh` | `npm run panel` | Opens the control panel in the browser (see [Control panel](#control-panel)) |
 
 ### Run modes
 
@@ -228,8 +237,10 @@ Optional discovery: `crawl.spec.ts` writes `atlas.crawl.json`. `loadNodes()` in 
 | `core/template.html` | The dashboard UI (graph, search, details panel, status) |
 | `core/serve.mjs` | Zero-dependency static server with `no-cache` headers, used for `staticDir` |
 | `core/cli.mjs` | Command dispatcher behind every wrapper and npm script |
+| `core/control-server.mjs` | Control panel server (`127.0.0.1`, zero dependencies, built-ins only). Runs the `core/cli.mjs` commands for the page, one at a time |
+| `core/control.html` | The control panel page: next step, actions, last run, live output, config form |
 | `playwright.config.ts` | Generic. One project per variant, all settings read from `atlas.config.ts` |
-| `script/setup.*`, `deps.*`, `config.*`, `run.*` | Thin `.bat` (Windows) and `.sh` (macOS / Linux) wrappers around `core/cli.mjs` |
+| `script/setup.*`, `deps.*`, `config.*`, `run.*`, `panel.*` | Thin `.bat` (Windows) and `.sh` (macOS / Linux) wrappers around `core/cli.mjs` (`panel` starts `core/control-server.mjs`) |
 | `assets/` | `banner.png`, `icon_blue.png`, `icon_transparent.png`. The dashboard inlines `icon_transparent.png` as its favicon and logo |
 
 ### Folder layout
@@ -243,7 +254,7 @@ Optional discovery: `crawl.spec.ts` writes `atlas.crawl.json`. `loadNodes()` in 
 │   └── quiz-arch/           a real-world port of the config
 ├── assets/
 ├── package.json · tsconfig.json · playwright.config.ts
-├── script/                 setup.* · deps.* · config.* · run.* (.bat + .sh)
+├── script/                 setup.* · deps.* · config.* · run.* · panel.* (.bat + .sh)
 │
 │  reviewed baselines (commit them in your project):
 ├── goldens/<variant>/*.png        approved images

@@ -5,6 +5,8 @@
  *   node core/cli.mjs setup                 deps + scaffold atlas.config.ts if missing
  *   node core/cli.mjs deps                  npm install + Playwright Chromium
  *   node core/cli.mjs config [--force]      interactive atlas.config.ts generator
+ *   node core/cli.mjs config --answers <json> [--force]
+ *                                           the same file from a JSON object of answers, no prompts
  *   node core/cli.mjs init --url <url> ...  non-interactive scaffold for an app (--crawl also crawls)
  *   node core/cli.mjs run [mode] [-- args]  atlas | capture | check | review | approve-new | approve-all
  *                                           | stabilize | discover | build | crawl | open | report | init | clean
@@ -77,6 +79,74 @@ async function hasGoldens() {
   catch { return fs.existsSync(path.join(ROOT, 'goldens')); }
 }
 
+// the prompts' defaults. The answers of `config --answers <json>` use the same field names.
+const DEFAULTS = {
+  title: path.basename(path.resolve(ROOT, '..')), kind: 'd', command: 'npm run dev', cwd: '..', staticDir: '../dist',
+  port: '8091', baseURL: '', start: '/', themeKey: '', dark: true, mobile: false, crawl: true,
+};
+
+// an empty or missing answer takes the default, as an empty answer at a prompt does
+function withDefaults(given) {
+  const a = { ...DEFAULTS };
+  for (const [k, v] of Object.entries(given)) if (v !== undefined && v !== '') a[k] = v;
+  if (!a.baseURL) a.baseURL = a.kind === 'r' ? 'http://localhost:3000' : 'http://localhost:5173';
+  return a;
+}
+
+// kind: d = dev server command, s = static folder, r = already running
+async function writeConfig(given) {
+  const a = withDefaults(given);
+  const dir = a.staticDir.replace(/\\/g, '/');
+  const cwd = a.cwd.replace(/\\/g, '/');
+  let server = '', baseURL = a.baseURL;
+  if (a.kind === 's') {
+    baseURL = `http://127.0.0.1:${a.port}`;
+    server = `server: { staticDir: ${JSON.stringify(dir)} },`;
+  } else if (a.kind === 'd') {
+    server = `server: { command: ${JSON.stringify(a.command)}, cwd: ${JSON.stringify(cwd)} },`;
+  }
+
+  const themeKey = a.dark ? a.themeKey : '';
+  const theme = v => themeKey ? `, localStorage: { ${JSON.stringify(themeKey)}: '${v}' }` : '';
+  const variants = [`    { name: 'light', label: 'Light', colorScheme: 'light'${theme('light')} },`];
+  if (a.dark) variants.push(`    { name: 'dark', label: 'Dark', colorScheme: 'dark'${theme('dark')} },`);
+  if (a.mobile) variants.push(`    { name: 'mobile', label: 'Mobile', colorScheme: 'light', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true${theme('light')} },`);
+
+  const { renderConfig } = await mod('init.mjs');
+  const src = renderConfig({ title: a.title, baseURL, server, start: a.start, variants, crawl: a.crawl });
+  if (fs.existsSync(CONFIG)) {
+    const bak = path.join(ROOT, `atlas.config.backup-${Date.now()}.ts`);
+    fs.copyFileSync(CONFIG, bak);
+    log(`  Backed up the old config to ${path.basename(bak)}`);
+  }
+  fs.writeFileSync(CONFIG, src);
+  log(`\n[OK] Wrote atlas.config.ts. Next: add nodes to it, then run the atlas${a.crawl ? ' (run crawl first to discover pages)' : ''}.`);
+  if (await hasGoldens()) log('[!] goldens/ already has approved shots. If the app or this config changed what they show, run "run clean --goldens" and capture again.');
+}
+
+// the questions, in the order the generator always asked them. Returns the answers.
+async function askAnswers(ask, yes) {
+  const a = { title: await ask('App name', DEFAULTS.title) };
+  const kind = (await ask('How is the app served? (d)ev server command / (s)tatic folder / (r)unning already', 'd')).toLowerCase()[0];
+  a.kind = kind === 's' || kind === 'r' ? kind : 'd';
+  if (a.kind === 's') {
+    a.staticDir = await ask('Static folder (relative to this folder)', DEFAULTS.staticDir);
+    a.port = await ask('Port', DEFAULTS.port);
+  } else if (a.kind === 'r') {
+    a.baseURL = await ask('App URL', 'http://localhost:3000');
+  } else {
+    a.command = await ask('Dev server command', DEFAULTS.command);
+    a.cwd = await ask('Run it in (relative to this folder)', DEFAULTS.cwd);
+    a.baseURL = await ask('URL it serves', 'http://localhost:5173');
+  }
+  a.start = await ask('Start page path', DEFAULTS.start);
+  a.dark = await yes('Does the app have a dark mode (prefers-color-scheme or a setting)?');
+  a.themeKey = a.dark ? await ask('localStorage key that stores the theme (empty if it follows the OS)', '') : '';
+  a.mobile = await yes('Also capture a mobile viewport?', false);
+  a.crawl = await yes('Auto-discover pages by following links (crawler)?');
+  return a;
+}
+
 async function config({ force = false } = {}) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   const ask = async (q, d = '') => ((await rl.question(d ? `  ${q} [${d}]: ` : `  ${q}: `)).trim() || d);
@@ -86,45 +156,46 @@ async function config({ force = false } = {}) {
       if (!(await yes('atlas.config.ts already exists. Replace it (a backup is kept)?', false))) { log('Kept the existing config.'); return; }
     }
     log('\n  Golden Map Atlas config generator: answer a few questions, edit the file afterwards.\n');
-    const title = await ask('App name', path.basename(path.resolve(ROOT, '..')));
-    const kind = (await ask('How is the app served? (d)ev server command / (s)tatic folder / (r)unning already', 'd')).toLowerCase()[0];
-    let server = '', baseURL;
-    if (kind === 's') {
-      const dir = (await ask('Static folder (relative to this folder)', '../dist')).replace(/\\/g, '/');
-      const port = await ask('Port', '8091');
-      baseURL = `http://127.0.0.1:${port}`;
-      server = `server: { staticDir: ${JSON.stringify(dir)} },`;
-    } else if (kind === 'r') {
-      baseURL = await ask('App URL', 'http://localhost:3000');
-    } else {
-      const command = await ask('Dev server command', 'npm run dev');
-      const cwd = (await ask('Run it in (relative to this folder)', '..')).replace(/\\/g, '/');
-      baseURL = await ask('URL it serves', 'http://localhost:5173');
-      server = `server: { command: ${JSON.stringify(command)}, cwd: ${JSON.stringify(cwd)} },`;
-    }
-    const start = await ask('Start page path', '/');
-    const dark = await yes('Does the app have a dark mode (prefers-color-scheme or a setting)?');
-    let themeKey = '';
-    if (dark) themeKey = await ask('localStorage key that stores the theme (empty if it follows the OS)', '');
-    const mobile = await yes('Also capture a mobile viewport?', false);
-    const crawl = await yes('Auto-discover pages by following links (crawler)?');
-
-    const theme = v => themeKey ? `, localStorage: { ${JSON.stringify(themeKey)}: '${v}' }` : '';
-    const variants = [`    { name: 'light', label: 'Light', colorScheme: 'light'${theme('light')} },`];
-    if (dark) variants.push(`    { name: 'dark', label: 'Dark', colorScheme: 'dark'${theme('dark')} },`);
-    if (mobile) variants.push(`    { name: 'mobile', label: 'Mobile', colorScheme: 'light', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true${theme('light')} },`);
-
-    const { renderConfig } = await mod('init.mjs');
-    const src = renderConfig({ title, baseURL, server, start, variants, crawl });
-    if (fs.existsSync(CONFIG)) {
-      const bak = path.join(ROOT, `atlas.config.backup-${Date.now()}.ts`);
-      fs.copyFileSync(CONFIG, bak);
-      log(`  Backed up the old config to ${path.basename(bak)}`);
-    }
-    fs.writeFileSync(CONFIG, src);
-    log(`\n[OK] Wrote atlas.config.ts. Next: add nodes to it, then run the atlas${crawl ? ' (run crawl first to discover pages)' : ''}.`);
-    if (await hasGoldens()) log('[!] goldens/ already has approved shots. If the app or this config changed what they show, run "run clean --goldens" and capture again.');
+    await writeConfig(await askAnswers(ask, yes));
   } finally { rl.close(); }
+}
+
+const ANSWER_TYPES = {
+  title: 'string', kind: 'string', command: 'string', cwd: 'string', staticDir: 'string', port: 'string',
+  baseURL: 'string', start: 'string', themeKey: 'string', dark: 'boolean', mobile: 'boolean', crawl: 'boolean',
+};
+
+// the JSON after --answers (or --answers=<json>); null when the flag is absent
+function answersArg() {
+  const eq = args.find(a => a.startsWith('--answers='));
+  if (eq) return eq.slice('--answers='.length);
+  const i = args.indexOf('--answers');
+  if (i < 0) return null;
+  if (args[i + 1] === undefined || args[i + 1].startsWith('--')) fail('--answers needs the JSON object after it.');
+  return args[i + 1];
+}
+
+// refuses unknown fields, wrong types and multi-line values before anything is written
+function checkAnswers(given) {
+  if (!given || typeof given !== 'object' || Array.isArray(given)) fail('--answers must be a JSON object.');
+  for (const [k, v] of Object.entries(given)) {
+    if (!Object.hasOwn(ANSWER_TYPES, k)) fail(`--answers: unknown field "${k}".`);
+    if (typeof v !== ANSWER_TYPES[k]) fail(`--answers: ${k} must be a ${ANSWER_TYPES[k]}.`);
+    if (typeof v === 'string' && (v.length > 500 || /[\r\n]/.test(v))) fail(`--answers: ${k} must be one line, at most 500 characters.`);
+  }
+  const a = withDefaults(given);
+  if (!['d', 's', 'r'].includes(a.kind)) fail('--answers: kind must be "d" (dev server), "s" (static folder) or "r" (already running).');
+  if (a.kind === 's' && !(/^\d{1,5}$/.test(a.port) && Number(a.port) >= 1 && Number(a.port) <= 65535)) fail('--answers: port must be a number from 1 to 65535.');
+}
+
+// config --answers <json>: the same file without prompts. Does not replace an existing config without --force.
+async function configFromAnswers(json, force) {
+  if (fs.existsSync(CONFIG) && !force) fail('atlas.config.ts already exists. Pass --force to replace it (a backup is kept).');
+  let given;
+  try { given = JSON.parse(json); }
+  catch (e) { fail(`--answers is not valid JSON: ${e.message}`); }
+  checkAnswers(given);
+  await writeConfig(given);
 }
 
 // non-interactive atlas.config.ts scaffold (init.mjs). --crawl also crawls straight after.
@@ -451,7 +522,12 @@ async function run(mode) {
 
 switch (cmd) {
   case 'deps': deps(); log('[OK] Dependencies ready.'); break;
-  case 'config': await config({ force: args.includes('--force') }); break;
+  case 'config': {
+    const json = answersArg();
+    if (json !== null) await configFromAnswers(json, args.includes('--force'));
+    else await config({ force: args.includes('--force') });
+    break;
+  }
   case 'init': await initCmd(args); break;
   case 'setup':
     deps();
@@ -460,7 +536,7 @@ switch (cmd) {
     break;
   case 'run': await run(args[0]); break;
   default:
-    log('Usage: node core/cli.mjs <setup | deps | config | init --url <url> [...] | run [mode] [--yes | --goldens | --force | --runs N | --keep | --all | --no-stabilize] [-- playwright args]>');
+    log('Usage: node core/cli.mjs <setup | deps | config [--force | --answers <json> [--force]] | init --url <url> [...] | run [mode] [--yes | --goldens | --force | --runs N | --keep | --all | --no-stabilize] [-- playwright args]>');
     log(`Modes: ${Object.keys(MODES).join(' | ')}`);
     for (const k of Object.keys(MODES)) log(`  ${k.padEnd(12)} ${MODES[k]}`);
     process.exitCode = cmd ? 1 : 0;
